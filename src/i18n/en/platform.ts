@@ -84,6 +84,7 @@ export const platform = {
     access: "Access",
     activity: "Activity",
     saveModules: "Save modules",
+    plan: "Plan",
     saveLimits: "Save limits",
     suspend: "Pause access",
     suspendHint: "Everyone in the organisation is signed out and cannot sign in until you resume. Data stays untouched.",

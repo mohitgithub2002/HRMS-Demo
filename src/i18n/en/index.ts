@@ -4,6 +4,7 @@ import { common } from "./common";
 import { errors, validation } from "./errors";
 import { home, setup } from "./home";
 import { nav } from "./nav";
+import { moduleName } from "./modules";
 import { platform } from "./platform";
 
 /** English — the source of every key. Each area lives in its own file; Hindi mirrors the same files. */
@@ -27,4 +28,5 @@ export const en = {
   approvals,
   profile,
   platform,
+  moduleName,
 };

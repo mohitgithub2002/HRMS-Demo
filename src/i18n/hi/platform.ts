@@ -84,6 +84,7 @@ export const platform = {
     access: "पहुँच",
     activity: "गतिविधि",
     saveModules: "मॉड्यूल सहेजें",
+    plan: "योजना",
     saveLimits: "सीमाएँ सहेजें",
     suspend: "पहुँच रोकें",
     suspendHint: "संगठन के सभी लोग साइन आउट हो जाएँगे और फिर शुरू करने तक साइन इन नहीं कर सकेंगे। डेटा वैसा ही रहेगा।",
