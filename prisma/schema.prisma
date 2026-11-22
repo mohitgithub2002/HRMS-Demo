@@ -1,0 +1,393 @@
+// Kosh HRMS Cloud — database schema.
+//
+// Two kinds of tables:
+//  • Platform tables (Tenant, PlatformUser, PlatformSession, PlatformAudit, Session, OtpChallenge) — no row-level
+//    security; only src/core and src/platform read them.
+//  • Tenant tables — every one has `tenantId`, filled by default from the transaction setting app.tenant_id and
+//    guarded by row-level security (migrations end with SELECT kosh_enable_rls()). See docs/ARCHITECTURE.md.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Platform
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum TenantStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+/// An organisation served by this installation (a Cantonment Board, a municipal body, a company).
+model Tenant {
+  id               String       @id @default(cuid())
+  /// Short code typed at sign-in ("DCB"). Upper case letters and digits, unique, never changes.
+  code             String       @unique
+  name             String
+  nameHi           String?
+  shortName        String?
+  kind             String       @default("CANTONMENT_BOARD")
+  status           TenantStatus @default(TRIAL)
+  plan             String       @default("STANDARD")
+  /// Enabled modules (see src/core/tenancy/modules.ts). Employees and settings are always on.
+  modules          String[]
+  maxUsers         Int          @default(500)
+  maxEmployees     Int          @default(5000)
+  /// Starter pack the masters were copied from, and its version.
+  pack             String       @default("GOI_7CPC")
+  packVersion      Int          @default(1)
+  address          String?
+  city             String?
+  state            String?
+  pincode          String?
+  contactName      String?
+  contactEmail     String?
+  contactPhone     String?
+  /// Brand colour for the organisation's sign-in page and header accent (hex).
+  accentColor      String?
+  logoFileId       String?
+  trialEndsAt      DateTime?
+  suspendedReason  String?
+  setupCompletedAt DateTime?
+  createdById      String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([status])
+}
+
+enum PlatformRole {
+  OWNER
+  SUPPORT
+}
+
+model PlatformUser {
+  id                 String       @id @default(cuid())
+  email              String       @unique
+  name               String
+  role               PlatformRole @default(SUPPORT)
+  passwordHash       String
+  mustChangePassword Boolean      @default(true)
+  isActive           Boolean      @default(true)
+  failedLogins       Int          @default(0)
+  lockedUntil        DateTime?
+  lastLoginAt        DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  sessions PlatformSession[]
+}
+
+model PlatformSession {
+  id             String    @id @default(cuid())
+  tokenHash      String    @unique
+  platformUserId String
+  /// Set when the OTP step is passed; until then the session can only finish signing in.
+  verifiedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  lastSeenAt     DateTime  @default(now())
+  expiresAt      DateTime
+  ip             String?
+  userAgent      String?
+
+  user PlatformUser @relation(fields: [platformUserId], references: [id], onDelete: Cascade)
+
+  @@index([platformUserId])
+}
+
+/// What platform users did (create, suspend, change modules, reset an Admin). Append-only.
+model PlatformAudit {
+  id         String   @id @default(cuid())
+  userId     String?
+  userName   String?
+  action     String
+  tenantId   String?
+  summary    String
+  data       Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([createdAt])
+}
+
+/// A signed-in organisation user. Bound to one tenant for its whole life.
+model Session {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique
+  tenantId   String
+  userId     String
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  expiresAt  DateTime
+  ip         String?
+  userAgent  String?
+
+  @@index([tenantId, userId])
+}
+
+enum OtpPurpose {
+  LOGIN
+  MOBILE_CHANGE
+  SIGN
+  PLATFORM_LOGIN
+}
+
+model OtpChallenge {
+  id         String     @id @default(cuid())
+  tenantId   String?
+  userId     String?
+  purpose    OtpPurpose
+  codeHash   String
+  sentTo     String
+  attempts   Int        @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  lastSentAt DateTime   @default(now())
+  createdAt  DateTime   @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tenant — foundation
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The three logins (PRD §2).
+enum LoginType {
+  ADMIN
+  HR_ACCOUNTS
+  EMPLOYEE
+}
+
+/// Permissions an Admin can tick inside a login (PRD §2).
+enum Permission {
+  APPROVER
+  PAY_BILL_SIGNER
+  USER_SETTINGS_MANAGER
+  HR
+  PAYROLL
+  PENSION
+  CHECKER
+  REPORTING_OFFICER
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum AttendanceMode {
+  DEVICE
+  MANUAL
+}
+
+/// A department / section of the organisation.
+model Section {
+  id             String         @id @default(cuid())
+  tenantId       String         @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  code           String
+  name           String
+  nameHi         String?
+  isActive       Boolean        @default(true)
+  attendanceMode AttendanceMode @default(DEVICE)
+  /// Weekly off days as "0,6" (0 = Sunday). Null follows the organisation's setting.
+  weeklyOff      String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([tenantId, code])
+}
+
+/// A post (designation). Retirement age follows the post (EM-02).
+model Post {
+  id            String   @id @default(cuid())
+  tenantId      String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  code          String
+  name          String
+  nameHi        String?
+  payLevel      String
+  group         String
+  retirementAge Int      @default(60)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, code])
+}
+
+model User {
+  id                 String       @id @default(cuid())
+  tenantId           String       @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  /// What the person types at sign-in: an Employee ID or a username. Unique inside the organisation.
+  loginId            String
+  name               String
+  loginType          LoginType
+  permissions        Permission[]
+  status             UserStatus   @default(ACTIVE)
+  mobile             String?
+  email              String?
+  passwordHash       String?
+  mustChangePassword Boolean      @default(true)
+  failedLogins       Int          @default(0)
+  lockedUntil        DateTime?
+  locale             String       @default("en")
+  /// The person's employee record, when the login belongs to an employee or pensioner.
+  employeeId         String?
+  lastLoginAt        DateTime?
+  passwordChangedAt  DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@unique([tenantId, loginId])
+  @@index([tenantId, mobile])
+  @@index([tenantId, employeeId])
+}
+
+enum AuditCategory {
+  DATA
+  SYSTEM
+}
+
+/// Every create / edit / approve / print (PRD §11). Append-only (trigger).
+model AuditLog {
+  id          String        @id @default(cuid())
+  tenantId    String        @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  userId      String?
+  userName    String?
+  loginType   LoginType?
+  ip          String?
+  userAgent   String?
+  action      String
+  entityType  String
+  entityId    String?
+  summary     String
+  category    AuditCategory @default(DATA)
+  isSensitive Boolean       @default(false)
+  oldValue    Json?
+  newValue    Json?
+  createdAt   DateTime      @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entityType, entityId])
+}
+
+/// Events for other systems (PRD §12 rule 5), written in the same transaction as the change.
+model OutboxEvent {
+  id          String    @id @default(cuid())
+  tenantId    String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  type        String
+  entityType  String
+  entityId    String?
+  payload     Json
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([tenantId, processedAt])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+  CANCELLED
+}
+
+/// One decision waiting for someone (maker-checker). A chain (Checker, then Admin) is one task per step.
+model ApprovalTask {
+  id                 String         @id @default(cuid())
+  tenantId           String         @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  kind               String
+  title              String
+  titleHi            String?
+  /// Rows shown to the person deciding: [{ label, old, new }].
+  details            Json?
+  payload            Json
+  status             ApprovalStatus @default(PENDING)
+  requiredPermission Permission
+  /// For a reporting officer's task: the section it belongs to.
+  sectionId          String?
+  /// The person the entry is about — nobody decides their own pay, loan or arrears (rule 2).
+  subjectEmployeeId  String?
+  entityType         String
+  entityId           String?
+  makerId            String
+  makerName          String
+  makerNote          String?
+  deciderId          String?
+  deciderName        String?
+  decisionNote       String?
+  decidedAt          DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@index([tenantId, status, requiredPermission])
+  @@index([tenantId, entityType, entityId])
+  @@index([tenantId, makerId])
+}
+
+/// Organisation settings, one row per key.
+model Setting {
+  id        String   @id @default(cuid())
+  tenantId  String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  key       String
+  value     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  @@unique([tenantId, key])
+}
+
+/// Number series per organisation (Employee IDs, references).
+model Sequence {
+  id       String @id @default(cuid())
+  tenantId String @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  name     String
+  value    Int    @default(0)
+
+  @@unique([tenantId, name])
+}
+
+/// File contents (documents, generated PDFs and bank files) when STORAGE_DRIVER=database; otherwise metadata only.
+model StoredFile {
+  id          String   @id @default(cuid())
+  tenantId    String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  name        String
+  contentType String
+  size        Int
+  sha256      String
+  driver      String
+  data        Bytes?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+enum MessageChannel {
+  SMS
+  EMAIL
+}
+
+model MessageLog {
+  id        String         @id @default(cuid())
+  tenantId  String         @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  channel   MessageChannel
+  to        String
+  template  String
+  status    String
+  error     String?
+  createdAt DateTime       @default(now())
+
+  @@index([tenantId, createdAt])
+}

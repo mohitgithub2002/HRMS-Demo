@@ -1,0 +1,184 @@
+export const permission = {
+  APPROVER: "Approver",
+  PAY_BILL_SIGNER: "Pay bill signer",
+  USER_SETTINGS_MANAGER: "User & settings manager",
+  HR: "HR",
+  PAYROLL: "Payroll",
+  PENSION: "Pension",
+  CHECKER: "Checker",
+  REPORTING_OFFICER: "Section head (reporting officer)",
+};
+
+export const loginType = {
+  ADMIN: "Admin",
+  HR_ACCOUNTS: "HR & Accounts",
+  EMPLOYEE: "Employee",
+};
+
+export const role = {
+  ADMIN: "Admin",
+  IT: "IT support",
+  HR: "HR manager",
+  ACCOUNTS: "Accounts manager",
+  HR_ACCOUNTS: "HR and Accounts manager",
+  EMPLOYEE: "Employee",
+  OFFICER: "Section head",
+  OTHER: "Custom permissions",
+  hint: {
+    ADMIN: "Sees and manages everything in the organisation.",
+    IT: "Users and settings only — never pay, bank or Aadhaar.",
+    HR: "Employees, hiring, attendance and leave.",
+    ACCOUNTS: "Payroll, loans, arrears, tax and pension.",
+    HR_ACCOUNTS: "Everything HR and Accounts do, for a small office.",
+    EMPLOYEE: "Own record, attendance, leave and payslips.",
+    OFFICER: "An employee who also decides for their section.",
+  },
+};
+
+export const users = {
+  title: "Users & roles",
+  subtitle: "Who can sign in, and what each person may do.",
+  add: "Add a user",
+  loginId: "Login ID",
+  loginIdHint: "Employee ID or a username. Capital letters and digits.",
+  name: "Full name",
+  mobile: "Mobile",
+  email: "Email",
+  role: "Role",
+  permissions: "Permissions",
+  loginType: "Kind of login",
+  lastLogin: "Last sign-in",
+  never: "Never",
+  status: "Status",
+  disable: "Switch off",
+  enable: "Switch on",
+  resetPassword: "Reset password",
+  resetDone: "New one-time password for {name}: {password}. Share it privately — it is shown only once.",
+  created: "Login created. One-time password: {password} — share it privately; it is shown only once.",
+  conflict: "The User & settings manager cannot also approve or sign pay.",
+  empty: "No users yet.",
+  you: "you",
+  edit: "Change role",
+  countActive: "{n} active",
+};
+
+export const settings = {
+  title: "Settings",
+  subtitle: "How your organisation works. Every change is recorded in the audit trail.",
+  workflow: {
+    title: "How work is approved",
+    simple: "Simple",
+    simpleHint: "Admin, HR manager and Accounts manager each decide on their own desk. What they enter counts at once.",
+    twoStep: "Two steps",
+    twoStepHint: "Every entry is checked by a second person; pay bills are signed by an Admin with an OTP.",
+  },
+  security: {
+    title: "Sign-in",
+    loginOtp: "Ask for a one-time code at every sign-in",
+    loginOtpHint: "Recommended. Turn off only until your SMS gateway is ready.",
+    mobileOtpLogin: "Employees and pensioners may sign in with mobile + code alone",
+  },
+  attendance: {
+    title: "Office hours",
+    officeStart: "Office starts",
+    graceMinutes: "Grace (minutes)",
+    halfDayAfter: "Half day if in after",
+    officeEnd: "Office ends",
+    weeklyOff: "Weekly off",
+    lockDay: "Month lock due by day",
+  },
+  statutoryIds: {
+    title: "Tax and statutory numbers",
+    tan: "TAN",
+    pan: "PAN of the organisation",
+    ddoCode: "DDO code",
+    ddoRegNo: "DDO registration no.",
+    pfCode: "EPF establishment code",
+    esicCode: "ESIC code",
+    ptState: "Professional tax state",
+  },
+  bank: {
+    title: "Salary bank",
+    bankName: "Bank",
+    accountNumber: "Debit account number",
+    ifsc: "IFSC",
+    format: "Bank file format",
+  },
+  payslip: { title: "Payslips", footer: "Footer note", showLeave: "Show leave balance on payslips" },
+  weekday: { "0": "Sun", "1": "Mon", "2": "Tue", "3": "Wed", "4": "Thu", "5": "Fri", "6": "Sat" },
+};
+
+export const org = {
+  title: "Organisation",
+  subtitle: "Your organisation's name, address and look.",
+  name: "Name",
+  nameHi: "Name in Hindi",
+  shortName: "Short name",
+  address: "Address",
+  city: "City",
+  state: "State",
+  pincode: "PIN code",
+  accent: "Brand colour",
+  accentHint: "Used on your sign-in page and as a small accent in the app.",
+  code: "Organisation code",
+  codeHint: "People type this at sign-in. It cannot be changed.",
+};
+
+export const sections = {
+  title: "Sections",
+  subtitle: "Departments of your organisation. Every employee belongs to one.",
+  add: "Add a section",
+  mode: "Attendance",
+  DEVICE: "Biometric device",
+  MANUAL: "Muster (entered by HR)",
+  weeklyOff: "Weekly off",
+  sameAsOrg: "Same as organisation",
+  empty: "No sections yet. Add your first section — for example Administration or Accounts.",
+};
+
+export const posts = {
+  title: "Posts",
+  subtitle: "Designations, with their pay level, group and retirement age.",
+  add: "Add a post",
+  payLevel: "Pay level",
+  group: "Group",
+  retirementAge: "Retires at",
+  empty: "No posts yet. Add designations such as Junior Clerk (Level 2, Group C).",
+};
+
+export const audit = {
+  title: "Audit trail",
+  subtitle: "Every create, change, approval and sign-in. Nothing here can be edited.",
+  who: "Who",
+  what: "What",
+  when: "When",
+  action: "Action",
+  systemOnly: "You see system events (sign-ins, users, settings) only.",
+  empty: "Nothing recorded yet.",
+  changes: "Changes",
+};
+
+export const approvals = {
+  title: "Approvals",
+  subtitle: "Everything waiting for you, oldest first.",
+  waiting: "Waiting for me",
+  raised: "Raised by me",
+  decided: "Decided by me",
+  approve: "Approve",
+  reject: "Reject",
+  sendBack: "Send back",
+  withdraw: "Withdraw",
+  note: "Note",
+  noteRequired: "Please write why.",
+  from: "From {name}",
+  empty: "Nothing is waiting for you.",
+  status: { PENDING: "Waiting", APPROVED: "Approved", REJECTED: "Rejected", RETURNED: "Sent back", CANCELLED: "Withdrawn" },
+};
+
+export const profile = {
+  title: "My profile",
+  subtitle: "Your sign-in, password and language.",
+  account: "Account",
+  security: "Password",
+  preferences: "Preferences",
+};

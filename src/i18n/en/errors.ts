@@ -1,0 +1,32 @@
+export const errors = {
+  generic: "Something went wrong. Please try again.",
+  validation: "Please check the highlighted fields.",
+  notSignedIn: "Please sign in again.",
+  forbidden: "You do not have access to this.",
+  notFound: "We could not find that.",
+  rateLimited: "Too many requests. Please wait a moment and try again.",
+  badOrigin: "This request came from another site and was refused.",
+  alreadyDecided: "Someone has already decided this.",
+  ownEntry: "You cannot approve your own entry.",
+  ownPay: "You cannot decide anything about your own pay or record.",
+  moduleOff: "This part of the system is not switched on for your organisation.",
+  orgSuspended: "Your organisation's access is paused. Please contact your administrator.",
+  duplicateCode: "This code is already in use.",
+  limitReached: "Your organisation has reached its limit of {limit} {what}. Ask the platform owner to raise it.",
+  fileTooLarge: "The file is larger than {size} MB.",
+  fileType: "This kind of file is not accepted.",
+};
+
+export const validation = {
+  required: "Required",
+  invalid: "Not valid",
+  tooShort: "Too short",
+  tooLong: "Too long",
+  email: "Enter a valid email address",
+  mobile: "Enter a 10-digit mobile number",
+  code: "Use capital letters and digits only (2–12)",
+  pincode: "Enter a 6-digit PIN code",
+  colour: "Choose a colour",
+  passwordRules: "At least 8 characters with a letter and a number",
+  passwordsDiffer: "The two passwords do not match",
+};
