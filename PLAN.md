@@ -124,9 +124,9 @@ in a browser, rows ticked here.
 | # | Module | Status |
 |---|---|---|
 | 0 | Plan, scaffold, tooling | [x] |
-| 1 | Core platform: tenancy & RLS, auth, access matrix, audit, outbox, approvals, i18n, design system, shells | [ ] |
-| 2 | Platform console: organisations, provisioning with packs, modules, suspend, platform users, usage, audit | [ ] |
-| 3 | Organisation setup: guided setup checklist, organisation profile, sections, posts, users & roles, settings; setup guide | [ ] |
+| 1 | Core platform: tenancy & RLS, auth, access matrix, audit, outbox, approvals, i18n, design system, shells | [x] |
+| 2 | Platform console: organisations, provisioning with packs, modules, suspend, platform users, usage, audit | [x] |
+| 3 | Organisation setup: guided setup checklist, organisation profile, sections, posts, users & roles, settings; setup guide | [x] |
 | 4 | Employee master: records, IDs, family & nominees, documents, service book, change requests, sanctioned posts, bulk upload | [ ] |
 | 5 | Attendance & holidays: punch imports, muster, daily status, requests, month lock, today board | [ ] |
 | 6 | Leave: rules, credits, apply & decide, ledger, opening balances | [ ] |
@@ -147,37 +147,37 @@ unit tests for every rule, an isolation test for every new table; checks green.
 ## 4. Module checklists
 
 ### Module 1 — Core platform
-- [ ] Tenant-scoped client + RLS policies generated for every table that has `tenantId`; default `tenantId` from the
+- [x] Tenant-scoped client + RLS policies generated for every table that has `tenantId`; default `tenantId` from the
       transaction setting; platform client for console work; production start-up refuses a role that bypasses RLS
-- [ ] Per-tenant encryption and blind-index keys (HKDF); OTP pepper
-- [ ] Sessions bound to one tenant (cookie `kosh_session`), 15-minute idle timeout, password + OTP sign-in,
+- [x] Per-tenant encryption and blind-index keys (HKDF); OTP pepper
+- [x] Sessions bound to one tenant (cookie `kosh_session`), 15-minute idle timeout, password + OTP sign-in,
       mobile + OTP for employees, lock after 5 wrong passwords, OTP limits
-- [ ] Access matrix (§14 as data) + simple roles; menus built from rights and the tenant's modules (≤ 8 items)
-- [ ] Audit trail (append-only trigger), outbox, approvals engine (two steps) + direct approval (simple)
-- [ ] REST wrapper: session, tenant, same-origin check, rate limits per tenant, Zod validation, translated errors
-- [ ] i18n English + Hindi with a parity test; money (paise, rupee rounding, words); dates (India time)
-- [ ] Design system: tokens (light + dark), Button, Input, Select, Textarea, Checkbox, Card, Badge, Tabs, Table
+- [x] Access matrix (§14 as data) + simple roles; menus built from rights and the tenant's modules (≤ 8 items)
+- [x] Audit trail (append-only trigger), outbox, approvals engine (two steps) + direct approval (simple)
+- [x] REST wrapper: session, tenant, same-origin check, rate limits per tenant, Zod validation, translated errors
+- [x] i18n English + Hindi with a parity test; money (paise, rupee rounding, words); dates (India time)
+- [x] Design system: tokens (light + dark), Button, Input, Select, Textarea, Checkbox, Card, Badge, Tabs, Table
       (stacks to cards on a phone), Dialog, Toast, EmptyState, PageHeader, StatTile, Stepper, Skeleton, Avatar
-- [ ] App shell: sidebar with brand, organisation switcher label, search, Ask button, language, profile; phone bottom bar
-- [ ] Sign-in screen with organisation code (remembered), branded per organisation via `/o/<code>`
+- [x] App shell: sidebar with brand, organisation switcher label, search, Ask button, language, profile; phone bottom bar
+- [x] Sign-in screen with organisation code (remembered), branded per organisation via `/o/<code>`
 
 ### Module 2 — Platform console
-- [ ] Platform users (owner, support) with password + OTP; own session cookie; own audit trail
-- [ ] Organisations list: status, plan, modules, users, employees, last activity; search and filter
-- [ ] Create organisation wizard: details → code → modules → pack → first Admin → review; one transaction; the
+- [x] Platform users (owner, support) with password + OTP; own session cookie; own audit trail
+- [x] Organisations list: status, plan, modules, users, employees, last activity; search and filter
+- [x] Create organisation wizard: details → code → modules → pack → first Admin → review; one transaction; the
       Admin's one-time password shown once
-- [ ] Organisation page: profile, status (trial / active / suspended / closed), modules, limits (users, employees),
+- [x] Organisation page: profile, status (trial / active / suspended / closed), modules, limits (users, employees),
       usage, reset the first Admin's password, audit
-- [ ] Suspending stops every sign-in and session of that organisation at once
-- [ ] Platform dashboard: organisations by status, active users today, employees, payroll runs this month
+- [x] Suspending stops every sign-in and session of that organisation at once
+- [x] Platform dashboard: organisations by status, active users today, employees, payroll runs this month
 
 ### Module 3 — Organisation setup
-- [ ] Setup checklist on the Admin's Home until done: each step shows its state from the data and links to its screen
-- [ ] Organisation profile (names in English and Hindi, address, logo, TAN, DDO code, PF/ESIC codes)
-- [ ] Sections (departments) and posts (designations, pay level, group, retirement age)
-- [ ] Users & roles (simple roles or ticked permissions), password resets, disabling
-- [ ] Settings: way of working, attendance times, lock day, weekly off, bank format, SMS/email, document types
-- [ ] docs/SETUP-GUIDE.md — the complete first-day-to-first-payroll guide
+- [x] Setup checklist on the Admin's Home until done: each step shows its state from the data and links to its screen
+- [x] Organisation profile (names in English and Hindi, address, logo, TAN, DDO code, PF/ESIC codes)
+- [x] Sections (departments) and posts (designations, pay level, group, retirement age)
+- [x] Users & roles (simple roles or ticked permissions), password resets, disabling
+- [x] Settings: way of working, attendance times, lock day, weekly off, bank format, SMS/email, document types
+- [x] docs/SETUP-GUIDE.md — the complete first-day-to-first-payroll guide
 
 ### Modules 4–13
 Feature lists follow the original's PLAN (EM-, RO-, AT-, LV-, PR-, SL-, ST-, PN- rows) and are copied here, row by
