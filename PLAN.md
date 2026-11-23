@@ -135,7 +135,7 @@ in a browser, rows ticked here.
 | 9 | Statutory & tax: GPF, NPS, EPF, ESIC, TDS projection, declarations, 24Q, Form 16, calendar | [x] |
 | 10 | Pension: pensioners, pension bill, life certificates, cases & PPO | [x] |
 | 11 | Recruitment & onboarding | [x] |
-| 12 | Reports & dashboards | [ ] |
+| 12 | Reports & dashboards | [x] |
 | 13 | Ask AI (per organisation, within each login's rights) | [ ] |
 
 **Definition of done for each module:** data model + migration with RLS; services with permission checks and
@@ -296,7 +296,7 @@ unit tests for every rule, an isolation test for every new table; checks green.
 - [x] PPO numbers start with the organisation's code; letterheads, payslips and statements carry the organisation's name
 - [x] Starter pack: dated pay rates, pay heads, income-tax slabs (this and last year), statutory due dates, commutation table
 - [x] A family pensioner's own login (no employee record) signs in to the pension view
-- [ ] Employee profile Overview, Payslips and Leave tabs (C1, C1b) — with Module 12 (reports), which shares their summaries
+- [x] Employee profile Overview, Payslips and Leave tabs (C1, C1b) — landed with Module 12
 
 ### Module 11 — Recruitment & onboarding (§5)
 - [x] RO-01 Vacancy only against a vacant sanctioned post (seats ≤ sanctioned − filled − open vacancies − joinings in progress); Admin approves before advertising
@@ -312,6 +312,15 @@ unit tests for every rule, an isolation test for every new table; checks green.
 - [x] S-20 Vacancies · S-21 Applicants & selection · S-22 Joining (+ Probation and Registration files tabs); applicant and list tables become cards on a phone
 - [x] Kosh: the joining approval uses the shared Employee-login helper (same as every new employee); the appointment letter carries the organisation's name, service rules and the signing authority from Settings
 
-### Modules 12–13
+### Module 12 — Reports & dashboards (§11)
+- [x] Dashboards per login — Admin: headcount by type, salary and pension cost, payroll stage, approvals, retirements in 6 months, statutory due dates; HR & Accounts: My work, locks open, payroll exceptions, leave waiting, joiners / leavers, life certificates overdue; Employee: last net pay, leave balance, next increment, requests waiting; Pensioner: last pension, life certificate. In the simple way, each desk gets its quick actions and its four first figures
+- [x] 25 standard reports, filter by month, section, employee type; Excel + PDF export — open to a login with Reports **and** the view right of what the report reads (§14); reporting officers see their own section; every download audited; payroll reports read approved bills only
+- [x] Report 25 ghost-employee check — and, new in Kosh, the database refuses a second current employee with the same PAN, Aadhaar or bank account in the same organisation (partial unique indexes, as in the original)
+- [x] Employee profile Overview (month / financial-year view), Leave and Payslips tabs; the suspension / leaving banner and "Record suspension or leaving" on the profile (C1, C1b, C2)
+- [ ] Migration console for the original client's FoxPro data — not carried over: each new organisation loads its people with the Excel bulk upload, opening leave balances and GPF openings instead
+- [ ] Full data export per organisation (CSV / JSON) — with the platform console's organisation page
+
+### Module 13
+Feature list follows the original's PLAN (Ask rows) and is copied here when the module starts.
 Feature lists follow the original's PLAN (RO-, reports, Ask rows) and are copied here, row by row, when each module
 starts, so each is ticked against the same requirement IDs.

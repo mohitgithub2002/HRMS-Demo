@@ -56,7 +56,7 @@ const TITLES: Record<StatKind, [string, string]> = {
   "stat.nps": ["NPS contribution file (CRA)", "एनपीएस अंशदान फ़ाइल (सीआरए)"],
   "stat.ecr": ["EPF return (ECR)", "ईपीएफ रिटर्न (ईसीआर)"],
   "stat.esic": ["ESIC contribution file", "ईएसआईसी अंशदान फ़ाइल"],
-  "stat.pension": ["Board pension fund statement", "परिषद पेंशन निधि विवरण"],
+  "stat.pension": ["Pension fund statement (employer)", "पेंशन निधि विवरण (नियोक्ता)"],
 };
 
 /** Builds a month's file and sends it to an Admin to release (ST-09). */

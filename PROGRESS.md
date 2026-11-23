@@ -18,7 +18,8 @@ What has changed, what was verified, what is pending. The module checklist is in
 | 9 | Statutory & tax (TDS, declarations, 24Q, Form 16, GPF, NPS, EPF, ESIC, calendar) | 🟢 Done & verified |
 | 10 | Pension (pensioners, bills, life certificates, cases & PPO) | 🟢 Done & verified |
 | 11 | Recruitment & onboarding | 🟢 Done & verified |
-| 12–13 | Reports & dashboards, Ask | ⚪ Pending (Reports next) |
+| 12 | Reports & dashboards (+ employee overview) | 🟢 Done & verified |
+| 13 | Ask AI | ⚪ Pending (next) |
 
 🟢 Done & verified · 🟡 In progress · ⚪ Pending
 
@@ -42,6 +43,19 @@ What has changed, what was verified, what is pending. The module checklist is in
 | Generated files are StoredFiles + a FileRecord register (`core/files`) | Same organisation wall as every upload; maker-checker release before download |
 
 ## Change log (newest first)
+
+### 2026-11-23 — Module 12: reports, dashboards and the employee overview ✅
+- The 25 standard reports with filters and Excel / PDF export (organisation's name on every sheet, Kosh colours);
+  Home rebuilt with each login's figures and "My work" (the simple way adds quick actions per desk); the Admin's
+  headcount, retirements and filings panel.
+- Employee profile: Overview (month or financial year), Leave and Payslips tabs, and the suspension / leaving banner
+  with "Record suspension or leaving".
+- **Found while porting the reports test:** the original's database refuses a second *current* employee with the same
+  PAN, Aadhaar or bank account; Kosh did not. Added per organisation (`kosh_tuniq_employee_active_*`, partial unique
+  indexes, protected from Prisma diffs like the other same-organisation keys).
+- Wording: the last "Board" phrases (English and Hindi) made general.
+- Tests: the original's reports test (8 cases incl. the ghost check) — 341 tests in total, all passing.
+- Verified in a browser: all 25 reports, Home for the Admin, HR and an employee (phone), the profile tabs.
 
 ### 2026-11-23 — Module 11: recruitment and onboarding ✅
 - Ported with its screens and wording: vacancies only against vacant sanctioned seats, applicants (one by one or
@@ -146,6 +160,5 @@ What has changed, what was verified, what is pending. The module checklist is in
 ## Pending / to confirm
 - [ ] Next.js 16.4.2 carries a published security advisory (seen in `next dev` and `next build`); upgrade together
       with the original repository.
-- [ ] Employee profile Overview, Payslips and Leave tabs (C1, C1b) — with Module 12, which shares their summaries.
 - [ ] An organisation logo on documents (today: the organisation's name; the platform's logo slot is empty).
 - [ ] An e-mail (SMTP) connector for the platform console's sign-in codes in production (today: the message gateway).

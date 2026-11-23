@@ -17,6 +17,7 @@ import { rates } from "./rates";
 import { files } from "./files";
 import { easy } from "./easy";
 import { recruitment } from "./recruitment";
+import { reports } from "./reports";
 
 /** English — the source of every key. Each area lives in its own file; Hindi mirrors the same files. */
 export const en = {
@@ -51,4 +52,5 @@ export const en = {
   files,
   easy,
   recruitment,
+  reports,
 };

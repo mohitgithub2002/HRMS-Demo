@@ -17,5 +17,6 @@ for name in sys.argv[1:]:
     s = re.sub(r', boardId\)', ', tenantDb(boardId))', s)
     s = s.replace("(await ledgerBalances(id))", "(await ledgerBalances(tenantDb(boardId), id))")
     s = s.replace("eventType:", "type:")
+    s = re.sub(r"= \{ boardId, ", "= { ", s)
     open(f"/home/user/HRMS-Demo/tests/integration/{name}.test.ts", "w").write(s)
     print("ported test", name)

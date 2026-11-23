@@ -87,13 +87,13 @@ export async function appointmentLetterPdf(actor: Actor, applicantId: string) {
   const html = `<!doctype html><html><head><meta charset="utf-8"><style>
     ${embeddedFonts()}
     @page { size: A4; margin: 18mm 18mm 16mm; }
-    body { font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; color: #17201b; font-size: 11.5pt; line-height: 1.55; margin: 0; }
+    body { font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; color: #17182b; font-size: 11.5pt; line-height: 1.55; margin: 0; }
     section[lang="hi"] { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; line-height: 1.75; }
     section + section { page-break-before: always; }
-    header { display: flex; align-items: center; gap: 14px; border-bottom: 2px solid #116541; padding-bottom: 10px; }
+    header { display: flex; align-items: center; gap: 14px; border-bottom: 2px solid #4740b4; padding-bottom: 10px; }
     header img { height: 86px; width: auto; }
-    header h1 { margin: 0; font-size: 18pt; color: #0f432e; }
-    header p { margin: 0; font-size: 9.5pt; color: #4f5d56; }
+    header h1 { margin: 0; font-size: 18pt; color: #1d1b45; }
+    header p { margin: 0; font-size: 9.5pt; color: #55586f; }
     .meta { display: flex; justify-content: space-between; margin: 14px 0 18px; font-size: 10pt; color: #3b4741; }
     .to { margin: 0 0 14px; }
     .subject { margin: 0 0 12px; }

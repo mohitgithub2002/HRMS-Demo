@@ -13,7 +13,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
   const { id } = await params;
   const { tab, ...filters } = await searchParams;
   const e = await orNotFound(getEmployee(actor, id));
-  const active = (PROFILE_TABS as readonly string[]).includes(tab ?? "") ? (tab as ProfileTab) : "personal";
+  const active = (PROFILE_TABS as readonly string[]).includes(tab ?? "") ? (tab as ProfileTab) : "overview";
   return (
     <div>
       <PageHeader className="mb-4" breadcrumbs={[{ label: t("employees.title"), href: "/employees" }, { label: e.employeeCode ?? e.name }]} title="" />

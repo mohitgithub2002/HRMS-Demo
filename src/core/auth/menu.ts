@@ -31,7 +31,7 @@ interface Def extends MenuItem {
 /** Screens that exist in this build (see the file comment). */
 export const BUILT = new Set<string>([
   "/", "/approvals", "/admin", "/profile", "/employees", "/my/record", "/my/requests", "/attendance", "/leave", "/my/attendance", "/my/team",
-  "/payroll", "/statutory", "/pension", "/my/payslips", "/my/pension-slips", "/my/life-certificate", "/recruitment",
+  "/payroll", "/statutory", "/pension", "/my/payslips", "/my/pension-slips", "/my/life-certificate", "/recruitment", "/reports",
 ]);
 
 const always: Rule = () => true;
@@ -155,4 +155,10 @@ export function adminTools(p: Principal): AdminTool[] {
     { key: "audit", href: "/admin/audit", label: "nav.audit", hint: "audit.subtitle", icon: "shield", show: can(p, "audit_trail", "view") },
   ];
   return tools.filter((t) => t.show).map(({ show: _show, ...t }) => t);
+}
+
+/** Whether a login has an approvals inbox worth showing on Home (it decides something, or raises things that are decided). */
+export function hasApprovalsInbox(p: Principal): boolean {
+  if (p.simple && isFullAdmin(p)) return true;
+  return p.permissions.some((x) => ["APPROVER", "PAY_BILL_SIGNER", "CHECKER", "REPORTING_OFFICER", "HR", "PAYROLL", "PENSION"].includes(x));
 }

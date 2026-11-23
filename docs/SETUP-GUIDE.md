@@ -513,6 +513,17 @@ that bill) → Pay (the bank file is released by an approver before anyone can d
 
 ---
 
+## Part H2 — Reports and dashboards (✅ available)
+
+*Reports* lists 25 standard reports in five groups — people, attendance and leave, payroll, funds and tax, pension
+and control — each with filters (month, section, type of staff) and an Excel and PDF download. A login sees a report
+only if it holds the *Reports* right **and** may see what the report reads; reporting officers see their own section.
+Run **Report 25 — Ghost-employee check** every month before paying: a salary account that also takes someone's
+pension, two pensions into one account, pay after retirement or leaving, pay with no attendance.
+
+Home shows each login what needs them today ("My work") and the figures of their desk; the Admin also sees headcount
+by type, retirements in the next six months and the filings due.
+
 ## Part I — Reference
 
 ### I1. Who may do what (summary)

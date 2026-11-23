@@ -1,14 +1,17 @@
-import { BookOpen, CalendarClock, CalendarDays, Clock, FileText, History, Hourglass, Pencil, Phone, ShieldAlert, Users } from "lucide-react";
+import { BookOpen, BriefcaseBusiness, CalendarCheck, CalendarClock, CalendarDays, Clock, DoorOpen, FileText, HandCoins, History, Hourglass, IndianRupee, Pencil, Phone, PiggyBank, Receipt, ShieldAlert, UserX, Users, Wallet } from "lucide-react";
+import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { LinkButton } from "@/components/ui/button";
+import { buttonClass, LinkButton } from "@/components/ui/button";
+import { controlClass } from "@/components/ui/field";
+import { StatTile } from "@/components/ui/stat-tile";
 import { Card, CardBody, CardHeader, DescriptionList } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LinkTabs } from "@/components/ui/tabs";
 import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
-import { canAll } from "@/core/auth/access";
+import { canAll, scopeFor } from "@/core/auth/access";
 import type { Actor } from "@/core/auth/session";
-import { formatDate, formatDateTime } from "@/core/dates";
+import { formatDate, formatDateTime, formatMonth, todayIST } from "@/core/dates";
 import { tDynamic, type TFunction } from "@/i18n";
 import type { Locale } from "@/core/i18n/types";
 import { formatINR } from "@/core/money";
@@ -17,12 +20,18 @@ import { addressLine } from "@/modules/employees/present";
 import { canRevealIds, fieldHistory, pendingChanges, type EmployeeView } from "@/modules/employees/service";
 import { getSetting } from "@/modules/settings/store";
 import { docTypeName } from "@/modules/settings/schema";
+import { employeeOverview, leaveApplicationsOf, payslipsOf } from "@/modules/employees/overview";
+import { fyList, monthsOfFy, parsePeriod, yearList, type Period } from "@/modules/employees/period";
+import { myPayslips } from "@/modules/payroll/payslips";
+import { canRecordSeparation, currentSeparation } from "@/modules/employees/separation";
+import { LEAVE_TONE } from "../../leave/_components/tones";
+import { SeparationDialog } from "./separation-dialog";
 import { statusTone, typeTone } from "./tones";
 import { DocumentDelete, DocumentUpload, RevealValue, ServiceEntryDialog, WithdrawButton } from "./widgets";
 
-export const PROFILE_TABS = ["personal", "job", "ids", "family", "documents", "serviceBook", "history"] as const;
+export const PROFILE_TABS = ["overview", "personal", "job", "ids", "family", "documents", "serviceBook", "leave", "payslips", "history"] as const;
 /** Tabs only HR & Accounts see; an employee's own record leaves them out. */
-export const HR_ONLY_TABS: ProfileTab[] = ["history"];
+export const HR_ONLY_TABS: ProfileTab[] = ["overview", "history"];
 export type ProfileTab = (typeof PROFILE_TABS)[number];
 const EDITABLE: ProfileTab[] = ["personal", "job", "ids", "family"];
 
@@ -43,9 +52,10 @@ export type Filters = { view?: string; month?: string; fy?: string; year?: strin
 
 const dash = (v: unknown) => (v === null || v === undefined || v === "" ? "—" : String(v));
 
-export async function EmployeeProfile({ e, actor, tab, t, locale, mode, basePath }: Props) {
+export async function EmployeeProfile({ e, actor, tab, t, locale, mode, basePath, filters = {} }: Props) {
   const hr = mode === "hr" && canAll(actor, "employee_master", "create") && e.id !== actor.employeeId;
-  const pending = await pendingChanges(actor, e.id);
+  const [pending, sep] = await Promise.all([pendingChanges(actor, e.id), mode === "hr" ? currentSeparation(actor, e.id) : null]);
+  const canSeparate = mode === "hr" && canRecordSeparation(actor) && e.id !== actor.employeeId && ["ACTIVE", "SUSPENDED"].includes(e.status) && sep?.status !== "PENDING" && !(sep && sep.kind !== "SUSPENSION");
   const name = locale === "hi" && e.nameHi ? e.nameHi : e.name;
   const tabs = PROFILE_TABS.filter((x) => mode === "hr" || !HR_ONLY_TABS.includes(x)).map((key) => ({
     key,
@@ -75,6 +85,7 @@ export async function EmployeeProfile({ e, actor, tab, t, locale, mode, basePath
               <Badge tone={statusTone(e.status)} dot>
                 {tDynamic(t, `employees.status.${e.status}`)}
               </Badge>
+              {canSeparate && <SeparationDialog employeeId={e.id} status={e.status} />}
               {hr && EDITABLE.includes(tab) && (
                 <LinkButton href={`/employees/${e.id}/edit?tab=${tab}`} size="sm" variant="primary" icon={<Pencil className="size-4" aria-hidden="true" />}>
                   {t("employees.profile.edit")}
@@ -145,7 +156,35 @@ export async function EmployeeProfile({ e, actor, tab, t, locale, mode, basePath
         </div>
       ))}
 
+      {sep && (
+        <div data-testid="separation-banner" className={`flex flex-wrap items-start justify-between gap-3 rounded-2xl border px-5 py-4 ${sep.kind === "SUSPENSION" ? "border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100" : "border-gold-200 bg-gold-50 text-gold-900 dark:border-gold-800/60 dark:bg-gold-900/30 dark:text-gold-100"}`}>
+          <div className="flex items-start gap-3">
+            {sep.kind === "SUSPENSION" ? <UserX className="mt-0.5 size-5 shrink-0" aria-hidden="true" /> : <DoorOpen className="mt-0.5 size-5 shrink-0" aria-hidden="true" />}
+            <div>
+              <p className="font-medium">
+                {sep.status === "PENDING"
+                  ? t("employees.exit.banner.waiting", { what: tDynamic(t, `employees.exit.kind.${sep.kind}`), date: formatDate(sep.effectiveDate, locale) })
+                  : sep.kind === "SUSPENSION"
+                    ? t("employees.exit.banner.suspended", { date: formatDate(sep.effectiveDate, locale) })
+                    : t(e.status === "ACTIVE" || e.status === "SUSPENDED" ? "employees.exit.banner.leaving" : "employees.exit.banner.left", { what: tDynamic(t, `employees.exit.kind.${sep.kind}`), date: formatDate(sep.effectiveDate, locale) })}
+              </p>
+              <p className="mt-0.5 text-sm">
+                {t("employees.exit.banner.order", { order: sep.orderNumber, date: formatDate(sep.orderDate, locale) })}
+                {sep.status === "APPROVED" && sep.kind !== "SUSPENSION" && <> · {tDynamic(t, `employees.exit.settlementStatus.${sep.settlementStatus}`)}</>}
+              </p>
+            </div>
+          </div>
+          <LinkButton href={`/employees/exits/${sep.id}`} size="sm">
+            {t("common.open")}
+          </LinkButton>
+        </div>
+      )}
+
       <LinkTabs tabs={tabs} active={tab} />
+
+      {tab === "overview" && mode === "hr" && <OverviewTab e={e} actor={actor} t={t} locale={locale} basePath={basePath} filters={filters} />}
+      {tab === "leave" && <LeaveTab e={e} actor={actor} t={t} locale={locale} mode={mode} basePath={basePath} filters={filters} />}
+      {tab === "payslips" && <PayslipsTab e={e} actor={actor} t={t} locale={locale} mode={mode} basePath={basePath} filters={filters} />}
 
       {tab === "personal" && (
         <Card>
@@ -480,5 +519,653 @@ async function HistoryTab({ e, actor, t, locale }: { e: EmployeeView; actor: Act
   );
 }
 
+type TabProps = { e: EmployeeView; actor: Actor; t: TFunction; locale: Locale };
+const days = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
+async function OverviewTab({ e, actor, t, locale, basePath, filters }: TabProps & { basePath: string; filters: Filters }) {
+  const today = todayIST();
+  const period = parsePeriod(filters, { today, doj: e.dateOfJoining });
+  // "Year" with no year chosen yet opens this financial year.
+  const chosen: Period | null = period ?? (filters.view === "year" ? { view: "year", fy: fyList(e.dateOfJoining, today)[0] } : null);
+  const o = await employeeOverview(actor, e.id, chosen);
+  const last = o.pay?.last;
+  const bar = <PeriodBar basePath={basePath} period={chosen} doj={e.dateOfJoining} today={today} t={t} locale={locale} />;
+  if (chosen?.view === "year") return <YearView e={e} actor={actor} o={o} t={t} locale={locale} basePath={basePath} bar={bar} />;
+  return (
+    <div className="space-y-6">
+      {bar}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile
+          label={t("employees.overview.service")}
+          value={t("employees.overview.serviceValue", { years: o.facts.service.years, months: o.facts.service.months })}
+          hint={t("employees.overview.joined", { date: formatDate(e.dateOfJoining, locale) })}
+          icon={<BriefcaseBusiness className="size-4.5" aria-hidden="true" />}
+        />
+        <StatTile
+          label={t("employees.overview.retires")}
+          value={e.dateOfRetirement ? formatDate(e.dateOfRetirement, locale) : "—"}
+          hint={o.facts.toRetirement ? t("employees.overview.retiresIn", o.facts.toRetirement) : !e.dateOfRetirement ? t("employees.overview.noRetirement") : undefined}
+          icon={<CalendarClock className="size-4.5" aria-hidden="true" />}
+          tone={o.facts.toRetirement && o.facts.toRetirement.years === 0 ? "amber" : "green"}
+        />
+        {e.basicPay !== null ? (
+          <StatTile label={t("employees.overview.basic")} value={formatINR(e.basicPay)} hint={t("employees.overview.levelCell", { level: e.payLevel ?? "—", cell: e.payCell ?? "—" })} icon={<IndianRupee className="size-4.5" aria-hidden="true" />} />
+        ) : e.wageRate !== null ? (
+          <StatTile label={t("employees.overview.wage")} value={formatINR(e.wageRate)} icon={<IndianRupee className="size-4.5" aria-hidden="true" />} />
+        ) : (
+          <StatTile label={t("employees.overview.basic")} value="—" icon={<IndianRupee className="size-4.5" aria-hidden="true" />} tone="gray" />
+        )}
+        {last ? (
+          <StatTile
+            label={chosen ? t("employees.overview.netFor", { month: formatMonth(last.month, locale) }) : t("employees.overview.lastNet")}
+            value={formatINR(last.net)}
+            hint={t("employees.overview.lastNetHint", { month: formatMonth(last.month, locale), gross: formatINR(last.gross) })}
+            icon={<Wallet className="size-4.5" aria-hidden="true" />}
+            href={`${basePath}?tab=payslips`}
+          />
+        ) : (
+          <StatTile label={t("employees.overview.lastNet")} value="—" hint={o.pay ? t("employees.overview.salaryNone") : t("employees.overview.payHidden")} icon={<Wallet className="size-4.5" aria-hidden="true" />} tone="gray" />
+        )}
+      </div>
 
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {o.leave && (
+          <Card>
+            <CardHeader
+              title={t("employees.overview.leave")}
+              icon={<CalendarDays className="size-4.5" aria-hidden="true" />}
+              actions={
+                <Link href={`/leave/ledger/${e.id}`} className="text-sm font-medium text-brand-700 hover:underline">
+                  {t("employees.overview.ledger")}
+                </Link>
+              }
+            />
+            <CardBody>
+              {o.leave.balances.length === 0 ? (
+                <p className="text-sm text-muted">{t("employees.overview.leaveNone")}</p>
+              ) : (
+                <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3" data-testid="overview-leave">
+                  {o.leave.balances.map((b) => (
+                    <li key={b.code} className="rounded-xl border border-line px-3 py-2.5">
+                      <p className="text-xs font-medium text-muted">
+                        {b.code} · {(locale === "hi" && b.nameHi) || b.name}
+                      </p>
+                      <p className="tabular mt-0.5 text-xl font-semibold text-ink">{b.balance === null ? "—" : days(b.balance)}</p>
+                      {b.pending > 0 && <p className="text-xs text-amber-700">{t("employees.overview.leaveWaiting", { days: days(b.pending) })}</p>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {chosen?.view === "month" && o.leave.taken && (
+                <div className="mt-4 border-t border-line pt-3" data-testid="overview-leave-taken">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t("employees.overview.takenIn", { period: formatMonth(chosen.month, locale) })}</p>
+                  {o.leave.applications.length === 0 ? (
+                    <p className="mt-1 text-sm text-muted">{t("employees.overview.noLeaveTaken")}</p>
+                  ) : (
+                    <ul className="mt-1 space-y-1 text-sm">
+                      {o.leave.applications.map((a) => (
+                        <li key={a.id} className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-ink-2">
+                            <b>{a.code}</b> · {formatDate(a.from, locale)}
+                            {a.to !== a.from && ` – ${formatDate(a.to, locale)}`} · {t("employees.overview.daysCount", { days: days(a.days) })}
+                          </span>
+                          <Badge tone={LEAVE_TONE[a.status]}>{tDynamic(t, `leave.status.${a.status}`)}</Badge>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        )}
+        <Card>
+          <CardHeader title={o.attendance ? t("employees.overview.attendance", { month: formatMonth(o.attendance.month, locale) }) : t("employees.overview.attendance", { month: chosen?.view === "month" ? formatMonth(chosen.month, locale) : "—" })} icon={<CalendarCheck className="size-4.5" aria-hidden="true" />} />
+          <CardBody>
+            {o.attendance ? (
+              <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                {(
+                  [
+                    ["present", o.attendance.present],
+                    ["onLeave", o.attendance.leave],
+                    ["late", o.attendance.late],
+                    ["diesNon", o.attendance.absentOrDiesNon],
+                    ["payable", o.attendance.payableDays],
+                  ] as const
+                ).map(([k, v]) => (
+                  <div key={k} className="rounded-xl bg-surface-2 px-3 py-2.5">
+                    <dt className="text-xs text-muted">{t(`employees.overview.${k}`)}</dt>
+                    <dd className="tabular mt-0.5 text-lg font-semibold text-ink">{days(v)}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="text-sm text-muted">{t("employees.overview.noAttendance")}</p>
+            )}
+          </CardBody>
+        </Card>
+      </div>
+
+      {o.pay ? (
+        <Card data-testid="overview-salary">
+          <CardHeader
+            title={last ? t("employees.overview.salary", { month: formatMonth(last.month, locale) }) : t("employees.overview.salary", { month: chosen?.view === "month" ? formatMonth(chosen.month, locale) : "—" })}
+            description={t("employees.overview.year", { fy: o.pay.year.fy, count: o.pay.year.slips, gross: formatINR(o.pay.year.gross), deductions: formatINR(o.pay.year.deductions), net: formatINR(o.pay.year.net) })}
+            icon={<Receipt className="size-4.5" aria-hidden="true" />}
+            actions={
+              <Link href={`${basePath}?tab=payslips`} className="text-sm font-medium text-brand-700 hover:underline">
+                {t("employees.overview.allSlips")}
+              </Link>
+            }
+          />
+          {last ? (
+            <CardBody className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              {(["EARNING", "DEDUCTION"] as const).map((kind) => {
+                const lines = last.lines.filter((l) => l.kind === kind);
+                return (
+                  <div key={kind}>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t(kind === "EARNING" ? "employees.overview.earnings" : "employees.overview.deductions")}</p>
+                    <ul className="divide-y divide-line text-sm">
+                      {lines.map((l) => (
+                        <li key={l.code} className="flex justify-between gap-3 py-1.5">
+                          <span className="text-ink-2">{(locale === "hi" && l.nameHi) || l.name}</span>
+                          <span className="tabular font-medium text-ink">{formatINR(l.amount)}</span>
+                        </li>
+                      ))}
+                      <li className="flex justify-between gap-3 py-1.5 font-semibold">
+                        <span>{t(kind === "EARNING" ? "employees.overview.gross" : "employees.overview.deductions")}</span>
+                        <span className="tabular">{formatINR(kind === "EARNING" ? last.gross : last.deductions)}</span>
+                      </li>
+                    </ul>
+                  </div>
+                );
+              })}
+              <div className="flex items-baseline justify-between rounded-xl bg-brand-900 px-4 py-3 text-white md:col-span-2">
+                <span className="font-medium">{t("employees.overview.net")}</span>
+                <span className="tabular text-2xl font-semibold">{formatINR(last.net)}</span>
+              </div>
+            </CardBody>
+          ) : (
+            <CardBody className="text-sm text-muted">{chosen?.view === "month" ? t("employees.overview.salaryNoneFor", { month: formatMonth(chosen.month, locale) }) : t("employees.overview.salaryNone")}</CardBody>
+          )}
+          {o.pay.alsoPaid.length > 0 && (
+            <CardBody className="border-t border-line">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t("employees.overview.alsoPaid")}</p>
+              <ul className="space-y-1 text-sm">
+                {o.pay.alsoPaid.map((x) => (
+                  <li key={x.id} className="flex justify-between gap-3">
+                    <span className="text-ink-2">{locale === "hi" ? x.titleHi : x.title}</span>
+                    <span className="tabular font-medium text-ink">{formatINR(x.net)}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardBody>
+          )}
+        </Card>
+      ) : (
+        <p className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted">{t("employees.overview.payHidden")}</p>
+      )}
+
+      {(o.loans || o.gpf) && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {o.loans && (
+            <Card>
+              <CardHeader title={t("employees.overview.loans")} icon={<HandCoins className="size-4.5" aria-hidden="true" />} />
+              {o.loans.length === 0 ? (
+                <CardBody className="text-sm text-muted">{t("employees.overview.noLoans")}</CardBody>
+              ) : (
+                <ul className="divide-y divide-line">
+                  {o.loans.map((l) => (
+                    <li key={l.id} className="flex items-center justify-between gap-3 px-5 py-3 sm:px-6">
+                      <div className="min-w-0">
+                        <p className="font-medium text-ink">{tDynamic(t, `payroll.loans.types.${l.type}`)}{l.purpose ? ` — ${l.purpose}` : ""}</p>
+                        <p className="text-xs text-muted">{t("employees.overview.loanLeft", { left: formatINR(l.left), instalment: formatINR(l.instalmentAmount) })}</p>
+                      </div>
+                      <Link href={`/payroll/loans/${l.id}`} className="text-sm font-medium text-brand-700 hover:underline">
+                        {t("employees.overview.open")}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          )}
+          {o.gpf && (
+            <Card>
+              <CardHeader title={t("employees.overview.gpf")} icon={<PiggyBank className="size-4.5" aria-hidden="true" />} actions={<Link href={`/statutory/funds/${e.id}`} className="text-sm font-medium text-brand-700 hover:underline">{t("employees.overview.open")}</Link>} />
+              <CardBody>
+                <p className="tabular text-2xl font-semibold text-ink">{formatINR(o.gpf.balance)}</p>
+                {o.gpf.advanceLeft > 0 && <p className="mt-1 text-sm text-amber-700">{t("employees.overview.gpfAdvance", { amount: formatINR(o.gpf.advanceLeft) })}</p>}
+              </CardBody>
+            </Card>
+          )}
+        </div>
+      )}
+      <DocumentsSummary e={e} actor={actor} t={t} locale={locale} basePath={basePath} />
+    </div>
+  );
+}
+
+async function LeaveTab({ e, actor, t, locale, basePath, filters }: TabProps & { mode: "hr" | "self"; basePath: string; filters: Filters }) {
+  const today = todayIST();
+  const years = yearList(e.dateOfJoining, today);
+  const year = filters.year && years.includes(Number(filters.year)) ? Number(filters.year) : null;
+  const [o, list] = await Promise.all([employeeOverview(actor, e.id), leaveApplicationsOf(actor, e.id, year)]);
+  if (!o.leave || !list) return <Card><CardBody className="text-sm text-muted">{t("employees.leaveTab.noAccess")}</CardBody></Card>;
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader
+          title={t("employees.overview.leave")}
+          icon={<CalendarDays className="size-4.5" aria-hidden="true" />}
+          actions={
+            <Link href={actor.employeeId === e.id ? "/leave/ledger/me" : `/leave/ledger/${e.id}`} className="text-sm font-medium text-brand-700 hover:underline">
+              {t("employees.overview.ledger")}
+            </Link>
+          }
+        />
+        <Table stack>
+          <THead>
+            <tr>
+              <Th>{t("employees.leaveTab.code")}</Th>
+              <Th align="right">{t("employees.leaveTab.balance")}</Th>
+              <Th align="right">{t("employees.leaveTab.waiting")}</Th>
+              <Th align="right">{t("employees.leaveTab.available")}</Th>
+            </tr>
+          </THead>
+          <tbody>
+            {o.leave.balances.map((b) => (
+              <Tr key={b.code}>
+                <Td className="font-medium text-ink">
+                  {b.code} · {(locale === "hi" && b.nameHi) || b.name}
+                </Td>
+                <Td label={t("employees.leaveTab.balance")} align="right">{b.balance === null ? "—" : days(b.balance)}</Td>
+                <Td label={t("employees.leaveTab.waiting")} align="right">{b.pending ? days(b.pending) : "—"}</Td>
+                <Td label={t("employees.leaveTab.available")} align="right" className="font-semibold">{b.available === null ? "—" : days(b.available)}</Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
+      </Card>
+      <Card>
+        <CardHeader
+          title={year ? t("employees.leaveTab.inYear", { year }) : t("employees.leaveTab.recent")}
+          description={year && list.taken.length ? t("employees.leaveTab.takenSummary", { list: list.taken.map((x) => `${x.code} ${days(x.days)}`).join(" · ") }) : undefined}
+          actions={
+            <form method="get" action={basePath} className="flex items-center gap-2">
+              <input type="hidden" name="tab" value="leave" />
+              <select name="year" defaultValue={year ?? ""} aria-label={t("employees.period.year")} className={controlClass(false, "h-9 w-auto")}>
+                <option value="">{t("employees.leaveTab.latest")}</option>
+                {years.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+              <button type="submit" className={buttonClass("secondary", "sm")}>
+                {t("employees.period.show")}
+              </button>
+            </form>
+          }
+        />
+        {list.applications.length === 0 ? (
+          <CardBody className="text-sm text-muted">{t("employees.leaveTab.noApplications")}</CardBody>
+        ) : (
+          <Table stack>
+            <THead>
+              <tr>
+                <Th>{t("employees.leaveTab.code")}</Th>
+                <Th>{t("employees.leaveTab.dates")}</Th>
+                <Th align="right">{t("employees.leaveTab.days")}</Th>
+                <Th>{t("employees.leaveTab.status")}</Th>
+              </tr>
+            </THead>
+            <tbody>
+              {list.applications.map((a) => (
+                <Tr key={a.id}>
+                  <Td className="font-medium text-ink">{a.code}</Td>
+                  <Td label={t("employees.leaveTab.dates")}>
+                    {formatDate(a.from, locale)}
+                    {a.to !== a.from && ` – ${formatDate(a.to, locale)}`}
+                  </Td>
+                  <Td label={t("employees.leaveTab.days")} align="right">{days(a.days)}</Td>
+                  <Td label={t("employees.leaveTab.status")}>
+                    <Badge tone={LEAVE_TONE[a.status]} dot>
+                      {tDynamic(t, `leave.status.${a.status}`)}
+                    </Badge>
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+async function PayslipsTab({ e, actor, t, locale, mode, basePath, filters }: TabProps & { mode: "hr" | "self"; basePath: string; filters: Filters }) {
+  const fys = fyList(e.dateOfJoining, todayIST());
+  const fy = filters.fy && fys.includes(filters.fy) ? filters.fy : null;
+  const all = mode === "self" ? (await myPayslips(actor)).filter((s) => !fy || monthsOfFy(fy).includes(s.month)) : await payslipsOf(actor, e.id, fy);
+  if (!all) return <Card><CardBody className="text-sm text-muted">{t("employees.overview.payHidden")}</CardBody></Card>;
+  const slips = all;
+  const total = (k: "gross" | "deductions" | "net") => slips.reduce((t2, s) => t2 + Math.round(s[k] * 100), 0) / 100;
+  return (
+    <Card>
+      <CardHeader
+        title={fy ? t("employees.payslipsTab.inFy", { fy }) : t("employees.tabs.payslips")}
+        icon={<Receipt className="size-4.5" aria-hidden="true" />}
+        actions={
+          <form method="get" action={basePath} className="flex items-center gap-2">
+            <input type="hidden" name="tab" value="payslips" />
+            <select name="fy" defaultValue={fy ?? ""} aria-label={t("employees.period.fy")} className={controlClass(false, "h-9 w-auto")}>
+              <option value="">{t("employees.payslipsTab.allYears")}</option>
+              {fys.map((y) => (
+                <option key={y} value={y}>
+                  {t("employees.period.fyLabel", { fy: y })}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className={buttonClass("secondary", "sm")}>
+              {t("employees.period.show")}
+            </button>
+          </form>
+        }
+      />
+      {slips.length === 0 ? (
+        <EmptyState icon={<Receipt className="size-6" aria-hidden="true" />} title={t("employees.payslipsTab.empty")} />
+      ) : (
+        <Table stack>
+          <THead>
+            <tr>
+              <Th>{t("employees.payslipsTab.month")}</Th>
+              <Th>{t("employees.payslipsTab.bill")}</Th>
+              <Th align="right">{t("employees.payslipsTab.gross")}</Th>
+              <Th align="right">{t("employees.payslipsTab.deductions")}</Th>
+              <Th align="right">{t("employees.payslipsTab.net")}</Th>
+              <Th>{t("employees.payslipsTab.pdf")}</Th>
+            </tr>
+          </THead>
+          <tbody>
+            {slips.map((s) => (
+              <Tr key={s.id}>
+                <Td className="whitespace-nowrap font-medium text-ink">{formatMonth(s.month, locale)}</Td>
+                <Td label={t("employees.payslipsTab.bill")} className="text-sm text-muted">
+                  {locale === "hi" ? s.titleHi : s.title}
+                  {s.creditStatus && s.creditStatus !== "CREDITED" && (
+                    <Badge tone={s.creditStatus === "FAILED" ? "red" : "blue"} className="ml-2">
+                      {tDynamic(t, `payroll.credit.${s.creditStatus}`)}
+                    </Badge>
+                  )}
+                </Td>
+                <Td label={t("employees.payslipsTab.gross")} align="right">{formatINR(s.gross)}</Td>
+                <Td label={t("employees.payslipsTab.deductions")} align="right">{formatINR(s.deductions)}</Td>
+                <Td label={t("employees.payslipsTab.net")} align="right" className="font-semibold">{formatINR(s.net)}</Td>
+                <Td label={t("employees.payslipsTab.pdf")}>
+                  <a href={`/api/v1/payslips/${s.id}/pdf?lang=${locale}`} target="_blank" rel="noopener" className="text-sm font-medium text-brand-700 hover:underline">
+                    {t("employees.payslipsTab.pdf")}
+                  </a>
+                </Td>
+              </Tr>
+            ))}
+            {fy && (
+              <Tr className="bg-surface-2 font-semibold" data-testid="payslips-total">
+                <Td className="text-ink">{t("employees.payslipsTab.total", { count: slips.length })}</Td>
+                <Td label={t("employees.payslipsTab.bill")}>{t("employees.period.fyLabel", { fy })}</Td>
+                <Td label={t("employees.payslipsTab.gross")} align="right">{formatINR(total("gross"))}</Td>
+                <Td label={t("employees.payslipsTab.deductions")} align="right">{formatINR(total("deductions"))}</Td>
+                <Td label={t("employees.payslipsTab.net")} align="right">{formatINR(total("net"))}</Td>
+                <Td label={t("employees.payslipsTab.pdf")}> </Td>
+              </Tr>
+            )}
+          </tbody>
+        </Table>
+      )}
+    </Card>
+  );
+}
+
+/** "Show for": the latest month, a chosen month, or a chosen financial year (April to March). */
+function PeriodBar({ basePath, period, doj, today, t, locale }: { basePath: string; period: Period | null; doj: string; today: string; t: TFunction; locale: Locale }) {
+  const year = period?.view === "year";
+  const fys = fyList(doj, today);
+  const pill = (active: boolean) =>
+    `rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${active ? "bg-surface text-brand-800 shadow-sm ring-1 ring-line" : "text-muted hover:text-ink"}`;
+  return (
+    <Card>
+      <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:px-6" data-testid="period-bar">
+        <span className="text-sm font-medium text-ink-2">{t("employees.period.showFor")}</span>
+        <div className="inline-flex w-fit rounded-full bg-sunken p-1" role="group" aria-label={t("employees.period.showFor")}>
+          <Link href={`${basePath}?tab=overview`} className={pill(!year)} aria-current={!year ? "true" : undefined}>
+            {t("employees.period.month")}
+          </Link>
+          <Link href={`${basePath}?tab=overview&view=year&fy=${period?.view === "year" ? period.fy : fys[0]}`} className={pill(year)} aria-current={year ? "true" : undefined}>
+            {t("employees.period.year")}
+          </Link>
+        </div>
+        <form method="get" action={basePath} className="flex flex-wrap items-center gap-2">
+          <input type="hidden" name="tab" value="overview" />
+          {year ? (
+            <>
+              <input type="hidden" name="view" value="year" />
+              <select name="fy" defaultValue={period.fy} aria-label={t("employees.period.fy")} className={controlClass(false, "h-9 w-auto")}>
+                {fys.map((y) => (
+                  <option key={y} value={y}>
+                    {t("employees.period.fyLabel", { fy: y })}
+                  </option>
+                ))}
+              </select>
+            </>
+          ) : (
+            <input type="month" name="month" defaultValue={period?.view === "month" ? period.month : ""} min={doj.slice(0, 7)} max={today.slice(0, 7)} aria-label={t("employees.period.month")} className={controlClass(false, "h-9 w-auto")} />
+          )}
+          <button type="submit" className={buttonClass("secondary", "sm")}>
+            {t("employees.period.show")}
+          </button>
+        </form>
+        <p className="text-xs text-muted sm:ml-auto">
+          {period?.view === "month" ? t("employees.period.showingMonth", { month: formatMonth(period.month, locale) }) : period?.view === "year" ? t("employees.period.showingYear", { fy: period.fy }) : t("employees.period.showingLatest")}
+        </p>
+      </div>
+    </Card>
+  );
+}
+
+/** A financial year at a glance: pay month by month (regular and supplementary bills) with attendance, the year's
+ * deductions, and leave taken. */
+function YearView({ e, actor, o, t, locale, basePath, bar }: { e: EmployeeView; actor: Actor; o: Awaited<ReturnType<typeof employeeOverview>>; t: TFunction; locale: Locale; basePath: string; bar: React.ReactNode }) {
+  const y = o.pay?.year;
+  return (
+    <div className="space-y-6">
+      {bar}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile label={t("employees.overview.service")} value={t("employees.overview.serviceValue", { years: o.facts.service.years, months: o.facts.service.months })} hint={t("employees.overview.joined", { date: formatDate(e.dateOfJoining, locale) })} icon={<BriefcaseBusiness className="size-4.5" aria-hidden="true" />} />
+        <StatTile label={t("employees.overview.yearNet", { fy: o.fy })} value={y ? formatINR(y.net) : "—"} hint={y ? t("employees.overview.yearNetHint", { count: y.slips, gross: formatINR(y.gross) }) : t("employees.overview.payHidden")} icon={<Wallet className="size-4.5" aria-hidden="true" />} tone={y ? "green" : "gray"} />
+        <StatTile label={t("employees.overview.yearTax")} value={y ? formatINR(y.tax) : "—"} icon={<Receipt className="size-4.5" aria-hidden="true" />} tone={y ? "blue" : "gray"} />
+        <StatTile label={t("employees.overview.yearLeave")} value={o.leave?.taken ? days(o.leave.taken.reduce((t2, x) => t2 + x.days, 0)) : "—"} hint={o.leave?.taken?.length ? o.leave.taken.map((x) => `${x.code} ${days(x.days)}`).join(" · ") : undefined} icon={<CalendarDays className="size-4.5" aria-hidden="true" />} tone="gray" />
+      </div>
+
+      {o.pay?.months ? (
+        <Card data-testid="overview-year">
+          <CardHeader
+            title={t("employees.overview.yearTitle", { fy: o.fy })}
+            description={t("employees.overview.yearHelp")}
+            icon={<Receipt className="size-4.5" aria-hidden="true" />}
+            actions={
+              <Link href={`${basePath}?tab=payslips&fy=${o.fy}`} className="text-sm font-medium text-brand-700 hover:underline">
+                {t("employees.overview.allSlips")}
+              </Link>
+            }
+          />
+          <Table stack>
+            <THead>
+              <tr>
+                <Th>{t("employees.payslipsTab.month")}</Th>
+                <Th align="right">{t("employees.payslipsTab.gross")}</Th>
+                <Th align="right">{t("employees.payslipsTab.deductions")}</Th>
+                <Th align="right">{t("employees.payslipsTab.net")}</Th>
+                <Th align="right">{t("employees.overview.present")}</Th>
+                <Th align="right">{t("employees.overview.onLeave")}</Th>
+                <Th align="right">{t("employees.overview.diesNon")}</Th>
+              </tr>
+            </THead>
+            <tbody>
+              {o.pay.months.map((m) => (
+                <Tr key={m.month}>
+                  <Td className="whitespace-nowrap font-medium text-ink">
+                    <Link href={`${basePath}?tab=overview&month=${m.month}`} className="hover:text-brand-700 hover:underline">
+                      {formatMonth(m.month, locale)}
+                    </Link>
+                    {m.bills > 1 && <span className="ml-2 text-xs font-normal text-muted">{t("employees.overview.bills", { count: m.bills })}</span>}
+                  </Td>
+                  <Td label={t("employees.payslipsTab.gross")} align="right">{m.bills ? formatINR(m.gross) : "—"}</Td>
+                  <Td label={t("employees.payslipsTab.deductions")} align="right">{m.bills ? formatINR(m.deductions) : "—"}</Td>
+                  <Td label={t("employees.payslipsTab.net")} align="right" className="font-semibold">{m.bills ? formatINR(m.net) : "—"}</Td>
+                  <Td label={t("employees.overview.present")} align="right">{m.attendance ? days(m.attendance.present) : "—"}</Td>
+                  <Td label={t("employees.overview.onLeave")} align="right">{m.attendance ? days(m.attendance.leave) : "—"}</Td>
+                  <Td label={t("employees.overview.diesNon")} align="right">{m.attendance ? days(m.attendance.absentOrDiesNon) : "—"}</Td>
+                </Tr>
+              ))}
+              {y && (
+                <Tr className="bg-surface-2 font-semibold">
+                  <Td className="text-ink">{t("employees.overview.yearTotal")}</Td>
+                  <Td label={t("employees.payslipsTab.gross")} align="right">{formatINR(y.gross)}</Td>
+                  <Td label={t("employees.payslipsTab.deductions")} align="right">{formatINR(y.deductions)}</Td>
+                  <Td label={t("employees.payslipsTab.net")} align="right">{formatINR(y.net)}</Td>
+                  <Td label={t("employees.overview.present")} align="right">{days(o.pay.months.reduce((t2, m) => t2 + (m.attendance?.present ?? 0), 0))}</Td>
+                  <Td label={t("employees.overview.onLeave")} align="right">{days(o.pay.months.reduce((t2, m) => t2 + (m.attendance?.leave ?? 0), 0))}</Td>
+                  <Td label={t("employees.overview.diesNon")} align="right">{days(o.pay.months.reduce((t2, m) => t2 + (m.attendance?.absentOrDiesNon ?? 0), 0))}</Td>
+                </Tr>
+              )}
+            </tbody>
+          </Table>
+          {y && (
+            <CardBody className="grid grid-cols-1 gap-3 border-t border-line sm:grid-cols-3">
+              {(
+                [
+                  ["yearTax", y.tax],
+                  ["yearFunds", y.funds],
+                  ["yearLoans", y.loans],
+                ] as const
+              ).map(([k, v]) => (
+                <div key={k} className="rounded-xl bg-surface-2 px-3 py-2.5">
+                  <p className="text-xs text-muted">{t(`employees.overview.${k}`)}</p>
+                  <p className="tabular mt-0.5 text-lg font-semibold text-ink">{formatINR(v)}</p>
+                </div>
+              ))}
+            </CardBody>
+          )}
+        </Card>
+      ) : (
+        <p className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted">{t("employees.overview.payHidden")}</p>
+      )}
+
+      {o.leave && (
+        <Card>
+          <CardHeader title={t("employees.overview.leaveInYear", { fy: o.fy })} icon={<CalendarDays className="size-4.5" aria-hidden="true" />} />
+          {o.leave.applications.length === 0 ? (
+            <CardBody className="text-sm text-muted">{t("employees.overview.noLeaveTaken")}</CardBody>
+          ) : (
+            <Table stack>
+              <THead>
+                <tr>
+                  <Th>{t("employees.leaveTab.code")}</Th>
+                  <Th>{t("employees.leaveTab.dates")}</Th>
+                  <Th align="right">{t("employees.leaveTab.days")}</Th>
+                  <Th>{t("employees.leaveTab.status")}</Th>
+                </tr>
+              </THead>
+              <tbody>
+                {o.leave.applications.map((a) => (
+                  <Tr key={a.id}>
+                    <Td className="font-medium text-ink">{a.code}</Td>
+                    <Td label={t("employees.leaveTab.dates")}>
+                      {formatDate(a.from, locale)}
+                      {a.to !== a.from && ` – ${formatDate(a.to, locale)}`}
+                    </Td>
+                    <Td label={t("employees.leaveTab.days")} align="right">{days(a.days)}</Td>
+                    <Td label={t("employees.leaveTab.status")}>
+                      <Badge tone={LEAVE_TONE[a.status]} dot>
+                        {tDynamic(t, `leave.status.${a.status}`)}
+                      </Badge>
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </Card>
+      )}
+      <DocumentsSummary e={e} actor={actor} t={t} locale={locale} basePath={basePath} />
+    </div>
+  );
+}
+
+/** The documents that matter most when looking a person up (shown on file or missing on the Overview). */
+const KEY_DOCS = ["APPOINTMENT_ORDER", "JOINING_REPORT", "ID_PROOF", "BANK_PROOF", "PHOTO", "SERVICE_BOOK"];
+
+/** The person's documents at a glance: the key ones on file or not, and the latest few to open. */
+
+async function DocumentsSummary({ e, actor, t, locale, basePath }: TabProps & { basePath: string }) {
+  const [docs, settings] = await Promise.all([listDocuments(actor, e.id), getSetting(actor.db, "documents")]);
+  const active = new Set(settings.types.filter((x) => x.active).map((x) => x.code));
+  const have = new Set(docs.map((d) => d.category));
+  const key = KEY_DOCS.filter((c) => active.has(c));
+  // Documents open for logins that see the whole organisation's records (as the Documents tab and the download allow).
+  const canOpen = scopeFor(actor, "employee_master", "view") === "all" || actor.employeeId === e.id;
+  return (
+    <Card data-testid="overview-documents">
+      <CardHeader
+        title={t("employees.overview.documentsTitle", { count: docs.length })}
+        icon={<FileText className="size-4.5" aria-hidden="true" />}
+        actions={
+          <Link href={`${basePath}?tab=documents`} className="text-sm font-medium text-brand-700 hover:underline">
+            {t("employees.overview.allDocuments")}
+          </Link>
+        }
+      />
+      <CardBody className="space-y-4">
+        {key.length > 0 && (
+          <ul className="flex flex-wrap gap-2" aria-label={t("employees.overview.keyDocuments")}>
+            {key.map((c) => (
+              <li key={c}>
+                <Badge tone={have.has(c) ? "green" : "amber"} dot>
+                  {t(have.has(c) ? "employees.overview.docOnFile" : "employees.overview.docMissing", { name: docTypeName(settings.types, c, locale) })}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+        {docs.length === 0 ? (
+          <p className="text-sm text-muted">{t("employees.documents.empty")}</p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {docs.slice(0, 6).map((d) => (
+              <li key={d.id} className="flex items-center gap-3 py-2.5">
+                <FileText className="size-4 shrink-0 text-brand-700" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  {canOpen ? (
+                    <a href={`/api/v1/documents/${d.id}?view=1`} target="_blank" rel="noopener" className="block truncate text-sm font-medium text-ink hover:text-brand-700 hover:underline">
+                      {d.title}
+                    </a>
+                  ) : (
+                    <p className="truncate text-sm font-medium text-ink">{d.title}</p>
+                  )}
+                  <p className="text-xs text-muted">
+                    {docTypeName(settings.types, d.category, locale)} · {formatDate(d.createdAt.toISOString().slice(0, 10), locale)}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {docs.length > 6 && (
+          <Link href={`${basePath}?tab=documents`} className="inline-block text-sm font-medium text-brand-700 hover:underline">
+            {t("employees.overview.moreDocuments", { count: docs.length - 6 })}
+          </Link>
+        )}
+      </CardBody>
+    </Card>
+  );
+}

@@ -259,7 +259,7 @@ export async function applicantTemplate(actor: Actor) {
   const sheet = wb.addWorksheet("Applicants", { views: [{ state: "frozen", ySplit: 1 }] });
   sheet.columns = APPLICANT_COLUMNS.map(([key, header]) => ({ key, header, width: Math.max(14, header.length + 2) }));
   sheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
-  sheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF116541" } };
+  sheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4740b4" } };
   APPLICANT_COLUMNS.forEach((_, i) => (sheet.getColumn(i + 1).numFmt = "@"));
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
