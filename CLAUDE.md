@@ -28,4 +28,10 @@
 - **Money:** `src/core/money.ts` (paise maths, rupee rounding). **Dates:** `src/core/dates.ts` (ISO strings, India time).
 - **Porting from the original:** `scripts/port/` (schema, code, a second pass for `boardId` helpers, tests, wording) —
   mechanical first, then fixed by hand until checks are green and the screens are checked in a browser.
+- **Pay core (Modules 7–10):** pure rules as in the original (`payroll/engine.ts`, `statutory/tax-rules.ts`,
+  `pension/rules.ts` …); `payroll/compute.ts`, `statutory/stat-build.ts`, `pension/compute.ts` take a client and are
+  seed-safe. Generated files go through `core/files/outgoing.ts` (FileRecord + StoredFile, released by maker-checker;
+  `onFileReleased` hooks); pay bills are signed with `core/auth/sign.ts`. Messages: `core/connectors/sms.ts` and
+  `email.ts` (per-organisation settings). The organisation's name / code for documents: `orgOf(db)` in
+  `core/tenancy/tenant.ts` — never a hard-coded name. Tests install pack parts with `installPack(boardId, keys)`.
 - **Checks before commit:** `npm run typecheck && npm run lint && npm test && npm run build`.

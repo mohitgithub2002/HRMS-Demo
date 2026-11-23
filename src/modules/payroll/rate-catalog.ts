@@ -1,6 +1,6 @@
 /**
  * The rates the pay engine reads (PR-02, ST-01), with the defaults from the PRD (DA 60% from 1 Jan 2026, HRA 30% for
- * Delhi, TA by level with DA on TA) and central rules for the statutory rates — all to confirm for DCB (PRD §18).
+ * X city, TA by level with DA on TA) and central rules for the statutory rates — all to confirm for each organisation.
  * Values live in the dated PayRate table; this file only names them.
  */
 export type RateUnit = "PERCENT" | "RUPEES" | "COUNT";
@@ -16,7 +16,7 @@ export interface RateDef {
 
 export const RATE_CATALOG: RateDef[] = [
   { key: "DA_PERCENT", name: "Dearness allowance", nameHi: "महँगाई भत्ता", unit: "PERCENT", group: "PAY" },
-  { key: "HRA_PERCENT", name: "House rent allowance (Delhi, X city)", nameHi: "मकान किराया भत्ता (दिल्ली, X शहर)", unit: "PERCENT", group: "ALLOWANCE" },
+  { key: "HRA_PERCENT", name: "House rent allowance (X city)", nameHi: "मकान किराया भत्ता (X शहर)", unit: "PERCENT", group: "ALLOWANCE" },
   { key: "HRA_MIN", name: "House rent allowance — lowest amount", nameHi: "मकान किराया भत्ता — न्यूनतम राशि", unit: "RUPEES", group: "ALLOWANCE" },
   { key: "TA_HIGH", name: "Transport allowance — Level 9 and above", nameHi: "परिवहन भत्ता — लेवल 9 और ऊपर", unit: "RUPEES", group: "ALLOWANCE" },
   { key: "TA_MID", name: "Transport allowance — Levels 3 to 8", nameHi: "परिवहन भत्ता — लेवल 3 से 8", unit: "RUPEES", group: "ALLOWANCE" },
@@ -63,7 +63,7 @@ export const RATE_KEYS = RATE_CATALOG.map((r) => r.key);
 
 /**
  * Defaults loaded by the seed: [key, value, effective from, note]. DA follows the central orders under the 7th CPC
- * (DA and DA on TA move together); 60% from 1 Jan 2026 is a demo value for the Board to replace with the real order.
+ * (DA and DA on TA move together); 60% from 1 Jan 2026 is the expected rate; each organisation checks it against the order in force.
  */
 const DA_ORDER = "Central DA order (7th CPC)";
 export const RATE_DEFAULTS: [string, number, string, string?][] = [
@@ -84,7 +84,7 @@ export const RATE_DEFAULTS: [string, number, string, string?][] = [
   ["DA_PERCENT", 53, "2024-07-01", DA_ORDER],
   ["DA_PERCENT", 55, "2025-01-01", DA_ORDER],
   ["DA_PERCENT", 58, "2025-07-01", DA_ORDER],
-  ["DA_PERCENT", 60, "2026-01-01", "Demo value — replace with the actual DA order"],
+  ["DA_PERCENT", 60, "2026-01-01", "Expected rate — check against the DA order in force"],
   ["HRA_PERCENT", 30, "2024-01-01"],
   ["HRA_MIN", 5400, "2016-01-01"],
   ["TA_HIGH", 7200, "2016-01-01"],

@@ -87,30 +87,30 @@ function page(d: Loaded, doc: PrintDoc, body: string, actor: Actor, landscape = 
   return `<!doctype html><html><head><meta charset="utf-8"><style>
     ${embeddedFonts()}
     @page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 12mm 12mm 14mm 12mm; }
-    body { font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; color: #17201b; font-size: ${landscape ? "7.6pt" : "9pt"}; margin: 0; }
+    body { font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; color: #17182b; font-size: ${landscape ? "7.6pt" : "9pt"}; margin: 0; }
     [lang="hi"] { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
-    header { display: flex; gap: 12px; align-items: center; border-bottom: 2px solid #116541; padding-bottom: 8px; }
+    header { display: flex; gap: 12px; align-items: center; border-bottom: 2px solid #4740b4; padding-bottom: 8px; }
     header img { height: 65px; width: auto; }
-    header h1 { margin: 0; font-size: 13.5pt; color: #0f432e; }
-    header p { margin: 1px 0 0; color: #4f5d56; }
+    header h1 { margin: 0; font-size: 13.5pt; color: #1d1b45; }
+    header p { margin: 1px 0 0; color: #55586f; }
     .meta { display: flex; flex-wrap: wrap; gap: 4px 22px; margin: 8px 0 10px; }
-    .meta b { color: #0f432e; }
+    .meta b { color: #1d1b45; }
     .draft { margin: 6px 0; padding: 5px 8px; border: 1.5px dashed #b45309; color: #92400e; font-weight: 700; text-align: center; letter-spacing: .04em; }
-    h2 { font-size: 10.5pt; margin: 14px 0 5px; color: #0f432e; }
+    h2 { font-size: 10.5pt; margin: 14px 0 5px; color: #1d1b45; }
     table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
-    th, td { border: 1px solid #d5ddd9; padding: 3px 5px; text-align: left; vertical-align: top; }
-    th { background: #edfaf2; color: #115136; font-weight: 600; }
+    th, td { border: 1px solid #dcdde8; padding: 3px 5px; text-align: left; vertical-align: top; }
+    th { background: #f1f1fd; color: #3b3692; font-weight: 600; }
     tr { page-break-inside: avoid; }
     .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .b { font-weight: 700; } .sub td { background: #f6faf8; font-weight: 600; } .tot td { background: #e3f5ea; font-weight: 700; }
-    .muted { color: #56645d; } .small { font-size: 8pt; }
+    .b { font-weight: 700; } .sub td { background: #f7f7fc; font-weight: 600; } .tot td { background: #e8e9fc; font-weight: 700; }
+    .muted { color: #5c5f76; } .small { font-size: 8pt; }
     .words { margin: 8px 0; font-weight: 600; }
     .certs { margin-top: 12px; font-size: 8.5pt; } .certs li { margin: 3px 0; }
     .signs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 28px; font-size: 8.5pt; }
-    .signs div { border-top: 1px solid #9aa8a1; padding-top: 4px; }
+    .signs div { border-top: 1px solid #9b9db2; padding-top: 4px; }
     .break { page-break-before: always; }
     .keep { break-inside: avoid; page-break-inside: avoid; }
-    footer { margin-top: 18px; display: flex; justify-content: space-between; font-size: 7.5pt; color: #56645d; }
+    footer { margin-top: 18px; display: flex; justify-content: space-between; font-size: 7.5pt; color: #5c5f76; }
   </style></head><body>
     <header>${logo ? `<img src="${logo}" alt="">` : ""}<div><h1>${esc(board.name)} · <span lang="hi">${esc(board.nameHi)}</span></h1><p>${DOC_TITLE[doc][0]} · <span lang="hi">${DOC_TITLE[doc][1]}</span> — ${esc(titleOf(run))}</p></div></header>
     <div class="meta">

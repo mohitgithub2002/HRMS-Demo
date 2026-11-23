@@ -45,7 +45,7 @@ export default async function MyPayslipsPage() {
                       </a>
                     )}
                     {f.partB && (
-                      <a href={`/api/v1/me/form16/${f.id}/B`} target="_blank" rel="noopener" className={buttonClass("primary", "sm")}>
+                      <a href={`/api/v1/me/form16/${f.id}/B`} target="_blank" rel="noopener" className={buttonClass("secondary", "sm")}>
                         <Download className="size-4" aria-hidden="true" /> {t("statutory.my.partB")}
                       </a>
                     )}
@@ -62,7 +62,7 @@ export default async function MyPayslipsPage() {
         </Card>
       ) : (
         <ul className="grid gap-3">
-          {slips.map((s) => (
+          {slips.map((s, i) => (
             <li key={s.id}>
               <Card>
                 <CardBody className="flex flex-wrap items-center justify-between gap-3">
@@ -78,7 +78,7 @@ export default async function MyPayslipsPage() {
                     {s.kind === "SUPPLEMENTARY" && <p className="truncate text-xs text-muted">{(locale === "hi" && s.titleHi) || s.title}</p>}
                   </div>
                   <div className="flex gap-2">
-                    <a href={`/api/v1/payslips/${s.id}/pdf?lang=${locale}`} target="_blank" rel="noopener" className={buttonClass("primary", "md")}>
+                    <a href={`/api/v1/payslips/${s.id}/pdf?lang=${locale}`} target="_blank" rel="noopener" className={buttonClass(i === 0 ? "primary" : "secondary", "md")}>
                       <Download className="size-4" aria-hidden="true" /> {t("payroll.payslips.download")}
                     </a>
                     <a href={`/api/v1/payslips/${s.id}/pdf?lang=${locale === "hi" ? "en" : "hi"}`} target="_blank" rel="noopener" className={buttonClass("ghost", "md")} lang={locale === "hi" ? "en" : "hi"}>

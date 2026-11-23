@@ -42,23 +42,23 @@ export async function leaveLedgerPdf(actor: Actor, employeeId: string) {
   const html = `<!doctype html><html><head><meta charset="utf-8"><style>
     ${embeddedFonts()}
     @page { size: A4; margin: 14mm 16mm 16mm 14mm; }
-    body { font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; color: #17201b; font-size: 9.5pt; margin: 0; }
+    body { font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; color: #17182b; font-size: 9.5pt; margin: 0; }
     [lang="hi"] { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
-    header { display: flex; gap: 14px; align-items: center; border-bottom: 2px solid #116541; padding-bottom: 10px; }
+    header { display: flex; gap: 14px; align-items: center; border-bottom: 2px solid #4740b4; padding-bottom: 10px; }
     header img { height: 73px; width: auto; }
-    header h1 { margin: 0; font-size: 15pt; color: #0f432e; }
-    header p { margin: 0; color: #4f5d56; }
+    header h1 { margin: 0; font-size: 15pt; color: #1d1b45; }
+    header p { margin: 0; color: #55586f; }
     .who { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 18px; margin: 12px 0 6px; font-size: 9.5pt; }
-    .who b { color: #0f432e; }
-    h2 { font-size: 11pt; margin: 16px 0 6px; color: #0f432e; } h2 small { color: #56645d; font-weight: 500; }
+    .who b { color: #1d1b45; }
+    h2 { font-size: 11pt; margin: 16px 0 6px; color: #1d1b45; } h2 small { color: #5c5f76; font-weight: 500; }
     table { width: 100%; border-collapse: collapse; page-break-inside: auto; table-layout: fixed; }
     th:nth-child(1) { width: 14%; } th:nth-child(2) { width: 17%; } th:nth-child(3) { width: 36%; } th:nth-child(4), th:nth-child(5), th:nth-child(6) { width: 11%; }
     td:first-child { white-space: nowrap; }
-    th, td { border: 1px solid #d5ddd9; padding: 4px 6px; text-align: left; vertical-align: top; }
-    th { background: #edfaf2; font-size: 8.5pt; color: #115136; }
+    th, td { border: 1px solid #dcdde8; padding: 4px 6px; text-align: left; vertical-align: top; }
+    th { background: #f1f1fd; font-size: 8.5pt; color: #3b3692; }
     tr { page-break-inside: avoid; }
     .n { text-align: right; font-variant-numeric: tabular-nums; } .b { font-weight: 600; }
-    footer { margin-top: 26px; display: flex; justify-content: space-between; font-size: 8.5pt; color: #56645d; }
+    footer { margin-top: 26px; display: flex; justify-content: space-between; font-size: 8.5pt; color: #5c5f76; }
     .sign { margin-top: 40px; text-align: right; font-weight: 600; }
   </style></head><body>
     <header>${logo ? `<img src="${logo}" alt="">` : ""}<div><h1>${esc(board.name)} · <span lang="hi">${esc(board.nameHi)}</span></h1><p>Leave account · <span lang="hi">अवकाश लेखा</span></p></div></header>

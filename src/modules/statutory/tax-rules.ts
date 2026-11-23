@@ -178,7 +178,7 @@ export interface PtSlab {
   amount: number;
 }
 
-/** Professional tax for a month's gross from the organisation's slabs (switched off in Delhi). */
+/** Professional tax for a month's gross from the organisation's slabs. */
 export function professionalTaxFor(monthlyGross: number, slabs: PtSlab[]): number {
   if (monthlyGross <= 0) return 0;
   const sorted = [...slabs].sort((a, b) => (a.upTo ?? Infinity) - (b.upTo ?? Infinity));

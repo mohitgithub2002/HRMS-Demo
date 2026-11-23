@@ -44,23 +44,23 @@ export async function settlementPdf(actor: Actor, id: string): Promise<{ pdf: Bu
   const html = `<!doctype html><html><head><meta charset="utf-8"><style>
     ${embeddedFonts()}
     @page { size: A4; margin: 14mm; }
-    body { font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; color: #17201b; font-size: 9pt; margin: 0; }
+    body { font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; color: #17182b; font-size: 9pt; margin: 0; }
     [lang="hi"] { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
-    header { display: flex; gap: 12px; align-items: center; border-bottom: 2px solid #116541; padding-bottom: 8px; }
-    header img { height: 70px; width: auto; } header h1 { margin: 0; font-size: 14pt; color: #0f432e; } header p { margin: 2px 0 0; color: #4f5d56; }
+    header { display: flex; gap: 12px; align-items: center; border-bottom: 2px solid #4740b4; padding-bottom: 8px; }
+    header img { height: 70px; width: auto; } header h1 { margin: 0; font-size: 14pt; color: #1d1b45; } header p { margin: 2px 0 0; color: #55586f; }
     .draft { margin: 10px 0; padding: 6px 10px; border: 1.5px solid #b45309; border-radius: 6px; color: #92400e; background: #fffbeb; font-weight: 600; }
-    h2 { font-size: 10pt; color: #0f432e; margin: 12px 0 4px; }
+    h2 { font-size: 10pt; color: #1d1b45; margin: 12px 0 4px; }
     table { width: 100%; border-collapse: collapse; } tr { break-inside: avoid; page-break-inside: avoid; }
-    th, td { border: 1px solid #d5ddd9; padding: 4px 7px; text-align: left; vertical-align: top; }
-    .facts th { width: 32%; background: #f6faf8; color: #115136; font-weight: 600; } th span { font-weight: 400; color: #4f5d56; }
-    .lines th { background: #f6faf8; color: #115136; } td.n { width: 22px; text-align: center; color: #56645d; } td.amt, th.amt { width: 110px; text-align: right; white-space: nowrap; }
-    .note { font-size: 7.5pt; color: #56645d; margin-top: 1px; }
-    .total td { font-weight: 600; background: #f6faf8; }
-    .net { margin-top: 12px; padding: 8px 12px; border: 1.5px solid #116541; border-radius: 8px; background: #edfaf2; font-size: 10pt; }
-    .info { margin-top: 8px; font-size: 8pt; color: #4f5d56; }
+    th, td { border: 1px solid #dcdde8; padding: 4px 7px; text-align: left; vertical-align: top; }
+    .facts th { width: 32%; background: #f7f7fc; color: #3b3692; font-weight: 600; } th span { font-weight: 400; color: #55586f; }
+    .lines th { background: #f7f7fc; color: #3b3692; } td.n { width: 22px; text-align: center; color: #5c5f76; } td.amt, th.amt { width: 110px; text-align: right; white-space: nowrap; }
+    .note { font-size: 7.5pt; color: #5c5f76; margin-top: 1px; }
+    .total td { font-weight: 600; background: #f7f7fc; }
+    .net { margin-top: 12px; padding: 8px 12px; border: 1.5px solid #4740b4; border-radius: 8px; background: #f1f1fd; font-size: 10pt; }
+    .info { margin-top: 8px; font-size: 8pt; color: #55586f; }
     .signs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 34px; font-size: 8.5pt; break-inside: avoid; }
-    .signs div { border-top: 1px solid #9aa8a1; padding-top: 4px; }
-    footer { margin-top: 16px; font-size: 7.5pt; color: #56645d; }
+    .signs div { border-top: 1px solid #9b9db2; padding-top: 4px; }
+    footer { margin-top: 16px; font-size: 7.5pt; color: #5c5f76; }
   </style></head><body>
     <header>${logo ? `<img src="${logo}" alt="">` : ""}<div><h1>${esc(board.name)} · <span lang="hi">${esc(board.nameHi)}</span></h1><p>Full and final settlement · <span lang="hi">अंतिम निपटान विवरण</span></p></div></header>
     ${view.frozen ? "" : `<div class="draft">Draft — not yet checked or approved · <span lang="hi">प्रारूप — अभी जाँचा या स्वीकृत नहीं</span></div>`}

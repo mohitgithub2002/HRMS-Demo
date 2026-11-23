@@ -102,8 +102,8 @@ export interface ReturnRow {
 /** The organisation's return-file template (banks' own return files are mapped to it). */
 export const RETURN_COLUMNS = ["Employee ID", "Amount", "Status", "Reason"] as const;
 export const RETURN_SAMPLE: string[][] = [
-  ["DCB10007", "61234.00", "FAILED", "Account closed"],
-  ["DCB10019", "52110.00", "FAILED", "Invalid IFSC"],
+  ["EMP00007", "61234.00", "FAILED", "Account closed"],
+  ["EMP00019", "52110.00", "FAILED", "Invalid IFSC"],
 ];
 
 const FAILED = ["FAILED", "FAIL", "RETURNED", "REJECTED", "UNPAID"];

@@ -13,7 +13,11 @@ What has changed, what was verified, what is pending. The module checklist is in
 | 4 | Employee master | 🟢 Done & verified (overview, leave and payslip tabs come with their modules) |
 | 5 | Attendance & holidays | 🟢 Done & verified |
 | 6 | Leave | 🟢 Done & verified |
-| 7–13 | Payroll, pay changes & loans, statutory, pension, recruitment, reports, Ask | ⚪ Pending (Payroll next) |
+| 7 | Payroll (rates & rules, monthly run, bank file, payslips) | 🟢 Done & verified |
+| 8 | Pay changes, arrears, loans; suspensions, leaving service & settlement | 🟢 Done & verified |
+| 9 | Statutory & tax (TDS, declarations, 24Q, Form 16, GPF, NPS, EPF, ESIC, calendar) | 🟢 Done & verified |
+| 10 | Pension (pensioners, bills, life certificates, cases & PPO) | 🟢 Done & verified |
+| 11–13 | Recruitment, reports, Ask | ⚪ Pending (Recruitment next) |
 
 🟢 Done & verified · 🟡 In progress · ⚪ Pending
 
@@ -32,8 +36,37 @@ What has changed, what was verified, what is pending. The module checklist is in
 | Starter packs as code (`src/platform/packs`), run in the provisioning transaction | A new organisation works from its first minute; all values stay editable |
 | Setup checklist worked out from data | It can never claim a step is done when it is not |
 | Same dependency versions as the original | Known to work together (Next 16.4.2, Prisma 7.10.1, React 19.2) |
+| Payroll, statutory and pension ported **together** (Modules 7–10) | The pay engine, TDS projection, GPF posting, settlements and the pension bill call each other; porting them one by one would have meant stubs in the engine |
+| Signing codes tied to the item (`core/auth/sign.ts`) | A code sent for one pay bill cannot approve another; OTP limits count per purpose, so signing never blocks sign-in |
+| Generated files are StoredFiles + a FileRecord register (`core/files`) | Same organisation wall as every upload; maker-checker release before download |
 
 ## Change log (newest first)
+
+### 2026-11-23 — Modules 7–10: payroll, pay changes and loans, statutory and tax, pension ✅
+- Ported from the original and re-verified (≈12,000 lines of services, 170 screens and API routes, 27 tables): pay
+  engine, five-stage monthly run and the simple three-step month, pre-checks, pay bill and prints, bank and return
+  files, payslips (PDF, SMS, e-mail), increments, fixation, arrears and supplementary bills, loans; suspensions,
+  leaving service and the full and final settlement; TDS projection, declarations, challans, Form 24Q, Form 16, GPF,
+  NPS / EPF / ESIC / pension-fund files and the statutory calendar; pensioners, the pension bill, life certificates,
+  dearness-relief arrears, deaths, retirement cases and the PPO.
+- **New in Kosh:** signing codes bound to one pay bill; per-organisation SMS gateway and e-mail settings (keys stay in
+  server variables); statutory settings per organisation (deductor, TAN, PAN, DDO, EPF, ESIC, metro HRA, professional
+  tax slabs) with the organisation profile as fallback; PPO numbers, letterheads, payslips and statements carry the
+  organisation's own code and name; PDFs in Kosh colours; a family pensioner's own login (no employee record) signs in
+  to the pension view; `tenantOf()` also works on a transaction client. Starter pack v2: pay rates, pay heads,
+  income-tax slabs (this and last year), statutory due dates, commutation table.
+- Settings: *Tax and statutory numbers* became *Tax and statutory details*; the salary bank keeps only the last four
+  digits of the debit account and offers an Excel or text file; new *SMS gateway* and *E-mail* cards.
+- Tests: the original's payroll-engine, pre-check, pay-change, statutory, pension and simple-way unit tests and its
+  payroll, pay-change, statutory, pension and simple-way integration tests run on the tenant-aware factory (pack parts
+  installed with `installPack`) — 330 tests in total, all passing; the isolation test covers the 27 new tables.
+- Seed: the DEMO organisation gets two closed months of payroll for every pay group, loans, GPF history, tax
+  declarations, statutory filings, six pensioners (two with logins) with two closed pension bills, and a leaver
+  whose settlement is ready to prepare.
+- Verified in a browser: 24 payroll, tax and pension screens for the Admin, Accounts, an employee and a pensioner
+  (phones for the last two) — no errors, no raw wording keys, nothing scrolls sideways; this month's salaries worked
+  out (25 people, net ₹18,01,654), 5 flagged points decided, approved and paid, the Excel bank file downloaded, the
+  month finished — payslips went out by SMS and e-mail with the organisation's name; the bulk payslip PDF checked.
 
 ### 2026-11-23 — Modules 5 and 6: attendance, holidays and leave ✅
 - Ported together (the month lock treats an unexplained day as leave; approved leave marks attendance) with the
@@ -99,6 +132,8 @@ What has changed, what was verified, what is pending. The module checklist is in
 - Tests: isolation suite (8), scoped-client unit tests, module rules, dictionary parity — 17 passing.
 
 ## Pending / to confirm
-- [ ] Next.js 16.4.2 carries a published security advisory (seen in `next dev`); upgrade together with the original
-      repository.
+- [ ] Next.js 16.4.2 carries a published security advisory (seen in `next dev` and `next build`); upgrade together
+      with the original repository.
+- [ ] Employee profile Overview, Payslips and Leave tabs (C1, C1b) — with Module 12, which shares their summaries.
+- [ ] An organisation logo on documents (today: the organisation's name; the platform's logo slot is empty).
 - [ ] An e-mail (SMTP) connector for the platform console's sign-in codes in production (today: the message gateway).

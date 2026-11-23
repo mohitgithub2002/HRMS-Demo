@@ -85,22 +85,22 @@ export async function renderPpo(db: DbLike, caseId: string): Promise<Buffer> {
   const html = `<!doctype html><html><head><meta charset="utf-8"><style>
     ${embeddedFonts()}
     @page { size: A4; margin: 14mm; }
-    body { font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; color: #17201b; font-size: 9pt; margin: 0; }
+    body { font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; color: #17182b; font-size: 9pt; margin: 0; }
     [lang="hi"] { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
-    header { display: flex; gap: 12px; align-items: center; border-bottom: 2px solid #116541; padding-bottom: 8px; }
-    header img { height: 70px; width: auto; } header h1 { margin: 0; font-size: 14pt; color: #0f432e; } header p { margin: 2px 0 0; color: #4f5d56; }
-    .ppo { display: flex; justify-content: space-between; margin: 10px 0; padding: 8px 12px; border: 1.5px solid #116541; border-radius: 8px; background: #edfaf2; }
-    .ppo b { font-size: 12pt; color: #0f432e; }
-    h2 { font-size: 10pt; color: #0f432e; margin: 12px 0 4px; }
+    header { display: flex; gap: 12px; align-items: center; border-bottom: 2px solid #4740b4; padding-bottom: 8px; }
+    header img { height: 70px; width: auto; } header h1 { margin: 0; font-size: 14pt; color: #1d1b45; } header p { margin: 2px 0 0; color: #55586f; }
+    .ppo { display: flex; justify-content: space-between; margin: 10px 0; padding: 8px 12px; border: 1.5px solid #4740b4; border-radius: 8px; background: #f1f1fd; }
+    .ppo b { font-size: 12pt; color: #1d1b45; }
+    h2 { font-size: 10pt; color: #1d1b45; margin: 12px 0 4px; }
     .sec, tr, .boxes, .signs { break-inside: avoid; page-break-inside: avoid; }
     table { width: 100%; border-collapse: collapse; }
-    th, td { border: 1px solid #d5ddd9; padding: 4px 7px; text-align: left; vertical-align: top; }
-    th { width: 36%; background: #f6faf8; color: #115136; font-weight: 600; } th span { font-weight: 400; color: #4f5d56; }
+    th, td { border: 1px solid #dcdde8; padding: 4px 7px; text-align: left; vertical-align: top; }
+    th { width: 36%; background: #f7f7fc; color: #3b3692; font-weight: 600; } th span { font-weight: 400; color: #55586f; }
     .boxes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-top: 18px; }
-    .box { border: 1px dashed #9aa8a1; height: 92px; padding: 6px; font-size: 8pt; color: #4f5d56; }
+    .box { border: 1px dashed #9b9db2; height: 92px; padding: 6px; font-size: 8pt; color: #55586f; }
     .signs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 26px; font-size: 8.5pt; }
-    .signs div { border-top: 1px solid #9aa8a1; padding-top: 4px; }
-    footer { margin-top: 16px; font-size: 7.5pt; color: #56645d; display: flex; justify-content: space-between; }
+    .signs div { border-top: 1px solid #9b9db2; padding-top: 4px; }
+    footer { margin-top: 16px; font-size: 7.5pt; color: #5c5f76; display: flex; justify-content: space-between; }
   </style></head><body>
     <header>${logo ? `<img src="${logo}" alt="">` : ""}<div><h1>${esc(board.name)} · <span lang="hi">${esc(board.nameHi)}</span></h1><p>Pension Payment Order · <span lang="hi">पेंशन भुगतान आदेश</span></p></div></header>
     <div class="ppo"><span>PPO No. / पीपीओ सं.: <b>${esc(c.ppoNumber ?? "—")}</b></span><span>Issued / जारी: <b>${c.approvedAt ? esc(formatDate(toISODate(c.approvedAt))) : "—"}</b></span></div>

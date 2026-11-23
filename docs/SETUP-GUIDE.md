@@ -18,7 +18,7 @@ This guide is written for three readers, in the order they work:
 
 > **Status of each part.** Kosh is being built module by module (see `PLAN.md`). Each chapter says whether it is
 > **✅ available now** or **🔜 arrives with Module N**. Chapters that are not yet available describe exactly how the
-> screen will work, so you can prepare your data in advance — it is the same flow as the DCB system Kosh is built on.
+> screen will work, so you can prepare your data in advance — it is the same flow as the single-organisation system Kosh is built on.
 
 ---
 
@@ -141,16 +141,19 @@ only when it is really done.
 Name in English and Hindi, short name, address, city, state, PIN code, and a **brand colour** (used on your sign-in
 page and as a small accent in the app). The code cannot be changed.
 
-### C2. Tax and statutory numbers — *Administration → Settings → Tax and statutory numbers*
+### C2. Tax and statutory details — *Administration → Settings → Tax and statutory details*
 
 | Field | Used on |
 |---|---|
+| Deductor name and address | Form 24Q, Form 16 (empty = the organisation's name and address from C1) |
 | TAN | TDS challans, Form 24Q, Form 16 |
 | PAN of the organisation | Form 24Q, Form 16 |
+| Person responsible for deducting tax, designation | Form 16 signature block, 24Q |
 | DDO code, DDO registration no. | Pay bills, 24Q, NPS files |
 | EPF establishment code | ECR file for contract and daily-wage staff |
 | ESIC code | ESIC monthly file |
-| Professional tax state | Leave empty where there is no professional tax (Delhi) |
+| Metro city | HRA exemption at 50% of Basic + DA (Delhi, Mumbai, Kolkata, Chennai), else 40% |
+| Professional tax + monthly slabs | Switch on only where your state levies it; enter the slabs of monthly gross |
 
 ### C3. How work is approved — *Settings → How work is approved*
 
@@ -221,12 +224,32 @@ the month by which last month's attendance must be locked (25), and the biometri
 
 ### C9. Salary bank — *Settings → Salary bank*
 
-The bank, the organisation's debit account and IFSC, and the bank file format (Generic CSV, SBI CMP, PNB, Bank of
-Baroda, Canara). The payroll makes the salary credit file in this format.
+The bank, the last four digits of the organisation's debit account (only these are kept), its IFSC, the file format
+(Generic, SBI CMP, PNB bulk, Bank of Baroda bulk, Canara bulk) and the file type — an **Excel sheet** (most bank
+portals take it) or the bank's text / CSV layout. The payroll makes the salary credit file in this format.
 
 ### C10. Payslips — *Settings → Payslips*
 
 A footer line printed on every payslip, and whether to show the leave balance.
+
+### C11. SMS gateway — *Settings → SMS gateway*
+
+Sign-in codes, pay-bill signing codes and salary / pension notices go by SMS. Until it is set up, **Practice** shows
+each message in the server log (and the sign-in screen shows the code on a practice copy — never in production).
+
+1. Register your sender id and message templates on the DLT platform (the texts are in `src/core/connectors/sms.ts`;
+   each ends with your organisation's name).
+2. Enter the gateway address with placeholders: `{to}` `{text}` `{templateId}` `{senderId}` `{entityId}` `{apiKey}`,
+   the method, sender id, DLT entity id and each template id.
+3. Put the gateway's API key in a **server variable** (e.g. `SMS_API_KEY`) and enter only the variable's name. The
+   key is never stored in the database.
+4. Choose **Live gateway** and save. Every message is logged (number masked) in the organisation's message log.
+
+### C12. E-mail — *Settings → E-mail*
+
+Payslips (PDF attached) and Form 16 go by e-mail to people who have an address on record. Enter the sender name and
+address, the SMTP server and port, and the names of the server variables that hold the SMTP user and password. With
+no server set, e-mails are only logged.
 
 When the checklist is green, press **Mark setup as finished**: the banner leaves Home.
 
@@ -234,7 +257,11 @@ When the checklist is green, press **Mark setup as finished**: the banner leaves
 
 ## Part D — Pay rules (rates, heads, matrix, tax)
 
-🔜 Arrives with Module 7 (Payroll) and Module 9 (Tax & statutory) · Payroll → **Rates and rules**
+✅ Available · *Administration → Rates and rules* (also from Payroll → **Rates and rules**)
+
+Tabs: **Rates** · **DA & TA by year** · **Pay heads** · **Pay matrix** · **Income tax** · **Due dates** · **Pension
+tables**. Every new organisation starts with the Government pack below; nothing has to be typed before the first
+payroll except checking the values against your own orders.
 
 Every rate is **dated**: a change is a new row with the date it takes effect, never an edit of the past. A month's
 pay uses the rates in force on the 1st of that month; a back-dated change produces arrears (Module 8). In the
@@ -249,7 +276,7 @@ commission is added as a new matrix with its own date (Excel upload → approval
 
 | Rate | Default | From |
 |---|---|---|
-| Dearness allowance (DA) | 0% → 2, 4, 5, 7, 9, 12, 17, 31, 34, 38, 42, 46, 50, 53, 55, 58, **60%** | 1 Jan 2016 → … → **1 Jan 2026** (demo value — replace with the actual order) |
+| Dearness allowance (DA) | 0% → 2, 4, 5, 7, 9, 12, 17, 31, 34, 38, 42, 46, 50, 53, 55, 58, **60%** | 1 Jan 2016 → … → **1 Jan 2026** (expected rate — check against the DA order in force) |
 | HRA (X city) | 30% of Basic, at least ₹5,400 | 1 Jan 2024 |
 | Transport allowance | Level 9+: ₹7,200 · Levels 3–8: ₹3,600 · Levels 1–2: ₹1,350 (₹3,600 when Basic ≥ ₹24,200) — plus DA on TA | 1 Jan 2016 |
 | NPS | Employee 10% · employer 14% of Basic + DA | 2004 / 1 Apr 2019 |
@@ -284,7 +311,8 @@ off from a date.
 Both regimes' slabs, standard deduction, rebate and cess are dated tables for each financial year. Each employee
 chooses a regime (new regime by default) and declares investments under *My tax*; HR & Accounts verify proofs
 before January. TDS is projected on the full year's income every month and adjusted in the last quarter — it is
-never typed as a pay item. Challans, Form 24Q and Form 16 follow in Module 9.
+never typed as a pay item. The pack loads the slabs for this financial year and the last; add next year's on the
+Income tax tab when the Budget is passed (an Admin approves it).
 
 ### D5. Statutory calendar
 
@@ -391,7 +419,7 @@ sanction) is a versioned table entry.
 
 ## Part G — The first payroll
 
-🔜 Arrives with Module 7 (Payroll)
+✅ Available · *Payroll* (Accounts manager; the Admin in the simple way)
 
 Run your first month **in parallel** with your old system, compare, and only then pay from Kosh.
 
@@ -407,6 +435,52 @@ Run your first month **in parallel** with your old system, compare, and only the
 6. **Bank file** in your bank's format → upload to the bank → read the return file → re-pay failed credits.
 7. **Finish the month**: payslips go to every employee (email + SMS link, in English and Hindi), the accounting
    summary by account head is made, and the month closes.
+
+**On screen, the simple way** (*Payroll → This month*): three steps — **Work out salaries** (one button, every pay
+group), **Review** (each flagged person: *It is fine — pay* or *Hold this pay*, one click), **Approve and pay** (bank
+files made; download each and upload it to the bank), then **Finish the month**. A bill can be taken back until the
+month is finished.
+
+**The two-step way** (*Payroll → a bill*): five stages — Run → Fix exceptions → Check (a Checker) → Approve & sign (an
+Admin with the *Pay bill signer* permission, with a one-time code sent to their own mobile; the code works only for
+that bill) → Pay (the bank file is released by an approver before anyone can download it).
+
+### G1. Pay items, increments, arrears and loans
+
+- **Allowances and deductions** (*Payroll → Allowances and deductions*): standing amounts per person — GPF
+  subscription, licence fee, society dues, court attachment, a one-off recovery — from a month, optionally to a month.
+- **Increments and promotions**: on 1 January and 1 July the list of people due appears; confirm it (a Checker
+  verifies). A promotion or MACP is fixed with the rule shown on screen.
+- **Arrears and extra bills**: back-dated DA, increments or fixation are worked out month by month, due vs drawn,
+  and paid in a supplementary bill through the same steps.
+- **Loans**: festival, computer, vehicle, house-building advances — sanctioned through a Checker and an Admin, then
+  recovered by the payroll every month until they reach zero.
+
+### G2. Tax, funds and statutory files — *Tax and statutory* (✅ available)
+
+| Tab | What to do |
+|---|---|
+| Calendar | Due dates for the month; reminders reach Accounts five days before each |
+| Declarations | Check each employee's regime and investment proofs (they declare under *My tax*) before January |
+| TDS & 24Q | Enter each month's challan (BSR code, number, date); make Form 24Q each quarter and run it through the FVU |
+| Files | NPS (CRA), EPF ECR, ESIC and the pension-fund file for each month — previewed, released by an approver, downloaded |
+| Form 16 | After March: make Part B, import Part A from TRACES, publish — employees download from *My pay* |
+| Funds | GPF ledgers (opening balances, advances, interest, annual statement) and NPS contributions |
+
+### G3. Pension — *Pension* (✅ available)
+
+1. **Pensioners from the old records**: add each with PPO number, type, basic pension, commuted amount and date,
+   bank account, family — a Checker approves each record.
+2. **The pension bill** runs every month like a pay group (*Pension → Bills*): basic + dearness relief + medical
+   allowance − commutation, additional pension at 80+, restoration after 15 years — all worked out from the dated
+   tables (*Rates and rules → Pension tables*).
+3. **Life certificates**: every November; pensioners upload a Jeevan Pramaan certificate from their own login, or the
+   office enters one. A pension is held when a certificate is overdue and paid with the next bill once it comes.
+4. **Retirements**: alerts at 12 and 6 months; prepare the case (*Pension → Cases*: calculator, no-dues from each
+   section, Checker then Admin); the PPO is a PDF numbered `<your code>/PPO/<year>/<n>`; the retiree moves to the
+   pension the day after retirement and the benefits are paid in a supplementary bill.
+5. **Leaving service** (*Employees → Suspensions & leaving*): suspension, resignation, removal, dismissal, termination,
+   end of contract, transfer out — the full and final settlement takes every loan and recovery into account.
 
 ---
 

@@ -136,7 +136,7 @@ async function pensionSlipHtml(db: DbLike, s: Slip, lang: Lang) {
       ${tax ? `<div>${L(lang, `Income tax ${tax.fy} (${tax.regime === "OLD" ? "old regime" : "new regime"})`, `आयकर ${tax.fy} (${tax.regime === "OLD" ? "पुरानी व्यवस्था" : "नई व्यवस्था"})`)}: <b>₹${rs(tax.annualTax)} ${L(lang, "for the year", "वर्ष का")}</b> · ${L(lang, "deducted before this month", "इस माह से पहले कटा")} ₹${rs(tax.deductedSoFar)}</div>` : ""}
       ${s.creditStatus === "FAILED" ? `<div class="warn">${L(lang, "The bank could not credit this payment; it is being paid again.", "बैंक यह भुगतान जमा नहीं कर सका; इसे फिर से भेजा जा रहा है।")}</div>` : ""}
     </div>
-    <footer>${L(lang, "Computer-generated slip; no signature needed.", "कंप्यूटर से बनी पर्ची; हस्ताक्षर की आवश्यकता नहीं।")} · DCB HRMS · ${esc(formatDateTime(new Date(), lang))}</footer>
+    <footer>${L(lang, "Computer-generated slip; no signature needed.", "कंप्यूटर से बनी पर्ची; हस्ताक्षर की आवश्यकता नहीं।")} · Kosh HR &amp; Payroll · ${esc(formatDateTime(new Date(), lang))}</footer>
   </section>`;
 }
 
@@ -182,7 +182,7 @@ async function slipHtml(db: DbLike, s: Slip, lang: Lang) {
       ${tax ? `<div>${L(lang, `Income tax ${tax.fy} (${tax.regime === "OLD" ? "old regime" : "new regime"})`, `आयकर ${tax.fy} (${tax.regime === "OLD" ? "पुरानी व्यवस्था" : "नई व्यवस्था"})`)}: <b>₹${rs(tax.annualTax)} ${L(lang, "for the year", "वर्ष का")}</b> · ${L(lang, "deducted before this month", "इस माह से पहले कटा")} ₹${rs(tax.deductedSoFar)}</div>` : ""}
       ${s.creditStatus === "FAILED" ? `<div class="warn">${L(lang, "The bank could not credit this payment; it is being paid again.", "बैंक यह भुगतान जमा नहीं कर सका; इसे फिर से भेजा जा रहा है।")}</div>` : ""}
     </div>
-    <footer>${L(lang, "Computer-generated slip; no signature needed.", "कंप्यूटर से बनी पर्ची; हस्ताक्षर की आवश्यकता नहीं।")} · DCB HRMS · ${esc(formatDateTime(new Date(), lang))}</footer>
+    <footer>${L(lang, "Computer-generated slip; no signature needed.", "कंप्यूटर से बनी पर्ची; हस्ताक्षर की आवश्यकता नहीं।")} · Kosh HR &amp; Payroll · ${esc(formatDateTime(new Date(), lang))}</footer>
   </section>`;
 }
 
@@ -190,20 +190,20 @@ function doc(body: string) {
   return `<!doctype html><html><head><meta charset="utf-8"><style>
     ${embeddedFonts()}
     @page { size: A4; margin: 12mm; }
-    body { font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; color: #17201b; font-size: 9.5pt; margin: 0; }
+    body { font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; color: #17182b; font-size: 9.5pt; margin: 0; }
     .slip { page-break-after: always; } .slip:last-child { page-break-after: auto; }
-    header { display: flex; gap: 12px; align-items: center; border-bottom: 2px solid #116541; padding-bottom: 8px; }
-    header img { height: 68px; width: auto; } header h1 { margin: 0; font-size: 14pt; color: #0f432e; } header p { margin: 2px 0 0; color: #4f5d56; }
-    .who { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px 22px; margin: 12px 0; } .who b { color: #0f432e; }
+    header { display: flex; gap: 12px; align-items: center; border-bottom: 2px solid #4740b4; padding-bottom: 8px; }
+    header img { height: 68px; width: auto; } header h1 { margin: 0; font-size: 14pt; color: #1d1b45; } header p { margin: 2px 0 0; color: #55586f; }
+    .who { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px 22px; margin: 12px 0; } .who b { color: #1d1b45; }
     table { width: 100%; border-collapse: collapse; margin-top: 6px; }
-    th, td { border: 1px solid #d5ddd9; padding: 4px 7px; text-align: left; } th { background: #edfaf2; color: #115136; }
-    .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; } .tot td { background: #e3f5ea; font-weight: 700; }
-    .net { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; padding: 10px 14px; border-radius: 10px; background: #0f432e; color: #fff; }
+    th, td { border: 1px solid #dcdde8; padding: 4px 7px; text-align: left; } th { background: #f1f1fd; color: #3b3692; }
+    .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; } .tot td { background: #e8e9fc; font-weight: 700; }
+    .net { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; padding: 10px 14px; border-radius: 10px; background: #1d1b45; color: #fff; }
     .net b { font-size: 16pt; } .words { margin: 6px 0 10px; font-weight: 600; }
-    h3 { font-size: 10pt; color: #0f432e; margin: 14px 0 4px; }
-    .extra { margin-top: 12px; display: grid; gap: 4px; } .extra b { color: #0f432e; } .warn { color: #b91c1c; font-weight: 600; }
-    footer { margin-top: 18px; font-size: 8pt; color: #56645d; }
-    .days { font-size: 7.5pt; color: #56645d; }
+    h3 { font-size: 10pt; color: #1d1b45; margin: 14px 0 4px; }
+    .extra { margin-top: 12px; display: grid; gap: 4px; } .extra b { color: #1d1b45; } .warn { color: #b91c1c; font-weight: 600; }
+    footer { margin-top: 18px; font-size: 8pt; color: #5c5f76; }
+    .days { font-size: 7.5pt; color: #5c5f76; }
   </style></head><body>${body}</body></html>`;
 }
 

@@ -130,10 +130,10 @@ in a browser, rows ticked here.
 | 4 | Employee master: records, IDs, family & nominees, documents, service book, change requests, sanctioned posts, bulk upload | [x] |
 | 5 | Attendance & holidays: punch imports, muster, daily status, requests, month lock, today board | [x] |
 | 6 | Leave: rules, credits, apply & decide, ledger, opening balances | [x] |
-| 7 | Payroll: rates & rules, pay items, monthly run (pre-checks, stages), pay bill, bank file, payslips | [ ] |
-| 8 | Pay changes, arrears, loans & advances | [ ] |
-| 9 | Statutory & tax: GPF, NPS, EPF, ESIC, TDS projection, declarations, 24Q, Form 16, calendar | [ ] |
-| 10 | Pension: pensioners, pension bill, life certificates, cases & PPO | [ ] |
+| 7 | Payroll: rates & rules, pay items, monthly run (pre-checks, stages), pay bill, bank file, payslips | [x] |
+| 8 | Pay changes, arrears, loans & advances | [x] |
+| 9 | Statutory & tax: GPF, NPS, EPF, ESIC, TDS projection, declarations, 24Q, Form 16, calendar | [x] |
+| 10 | Pension: pensioners, pension bill, life certificates, cases & PPO | [x] |
 | 11 | Recruitment & onboarding | [ ] |
 | 12 | Reports & dashboards | [ ] |
 | 13 | Ask AI (per organisation, within each login's rights) | [ ] |
@@ -216,6 +216,88 @@ unit tests for every rule, an isolation test for every new table; checks green.
 - [x] LV-07 Leave account per employee on screen and as a bilingual PDF
 - [x] Screens: Leave (mine), Apply, Team leave, Leave management (applications, balances, enter, opening, rules), application page, ledger
 
-### Modules 7–13
-Feature lists follow the original's PLAN (EM-, RO-, AT-, LV-, PR-, SL-, ST-, PN- rows) and are copied here, row by
-row, when each module starts, so each is ticked against the same requirement IDs.
+### Module 7 — Rates & rules + monthly payroll (§8)
+- [x] PR-01 7th CPC pay matrix as a dated table (level × cell); a new commission matrix can be added with a new date (Excel upload → Admin approves)
+- [x] PR-02 DA / HRA / TA dated rate table: DA 60% from 1 Jan 2026, HRA 30% (X city; Y / Z rates kept), TA by level with DA on TA — plus the statutory rates (NPS, GPF, GIS, EPF, ESIC, pension fund)
+- [x] PR-03 Pay heads master (Basic, DA, HRA, TA, NPA, special, washing, uniform, conservancy, risk…) each with formula + account head; changes and new heads through an Admin, versioned
+- [x] PR-04 Deductions: GPF/CPF, NPS 10%, income tax, group insurance, licence fee, loans, court attachment, society dues, overpayment recovery — standing amounts per person as pay items, checked by a Checker
+- [x] PR-05 Pay groups: Permanent-OPS (with deputation), Permanent-NPS, Contract & daily wage (with re-employed) — _the Pensioners group runs the pension bill (Module 10)_
+- [x] PR-10 Pre-checks: no bank account, negative net, pay after retirement (or contract end), net change > 25%, duplicate bank account — plus no pay level, suspension and last month's attendance not locked
+- [x] PR-11 Pay bill, schedules, acquittance roll, salary register as bilingual PDFs — _layouts to be matched to each organisation's printed formats_
+- [x] PR-12 Bank file in the bank's format (generic, SBI CMP, PNB, BoB, Canara) through the file registry; return file of failed credits read; re-pay file
+- [x] PR-13 Reopen only by Admin with a reason, only before bank file release
+- [x] PR-14 Accounting summary by account head for the accounts system (balanced debit / credit CSV at month close, through the file registry)
+- [x] S-81 Rates & rules (HR proposes, Admin approves, effective dates)
+- [x] S-40 Payroll month — five stages: Run → Fix exceptions → Check → Approve & sign (OTP) → Pay
+- [x] Pay items screen (standing allowances and deductions per person) · pay sheet per person · Home tile (pay groups approved this month) · approvals inbox opens the payroll to decide
+- [x] Worked example passes exactly: L6 C1 NPS (X city) → gross ₹73,020, NPS ₹5,664
+- [x] Full payroll run under 30 minutes (§16) — a pay group works out in well under a second for the demo organisation
+
+### Module 8 — Pay changes, arrears, loans & salary slips (§8)
+- [x] PR-06 Increment due list on 1 Jan / 1 Jul (six months in the level; own record cannot be ticked; leave without pay flagged); HR & Accounts confirm, Checker verifies, pay history + service book updated, a future date waits for its day
+- [x] PR-07 Pay fixation on promotion / MACP with the rule shown on screen — both options (from promotion / from the next increment date), Checker then Admin
+- [x] PR-08 Arrears "due vs drawn" for any back period (rates, increments, fixation), month by month, paid in a supplementary bill that goes through the same five stages; also bills for pay withheld earlier and for joiners
+- [x] PR-09 Loans & advances: sanction (Checker + Admin), schedule, simple interest after the principal, recovery through payroll recorded on approval and undone on reopen, stops at zero
+- [x] SL-01 PDF payslip: the organisation's name, Employee ID, post, level & cell, bank last 4, PAN masked
+- [x] SL-02 Earnings, deductions, net in figures and words; leave balance; NPS to date and GPF this year from the pay bills — _full GPF / NPS ledgers with interest in Module 9_
+- [x] SL-03 Hindi and English versions
+- [x] SL-04 Email (PDF attached, the organisation's SMTP (Settings → E-mail)) + SMS link on credit day (bank file released); employee downloads any past month (2 taps on phone)
+- [x] SL-05 Bulk download for a bill or one section as one PDF
+- [x] S-41 Increments & fixation · S-42 Arrears & supplementary bills · S-43 Loans · S-44 Payslips (HR & Accounts and My payslips)
+
+### Module 9 — Statutory & tax (§9)
+- [x] GPF ledger (min 6%, annual cap ₹5 lakh, advances, withdrawals, interest, annual statement) — _GPF final payment on retirement in Module 10_
+- [x] NPS employee 10% + employer share, CRA contribution file, CRA statement reconciliation
+- [x] Organisation pension fund 10% employer contribution for OPS staff (CBAR 2020)
+- [x] EPF 12% + 12% with ₹15,000 ceiling, EPS split, ECR file
+- [x] ESIC employee/employer shares, monthly contribution file
+- [x] Professional tax switch with monthly slabs (per state)
+- [x] ST-01 Rates, ceilings and due dates as dated, editable tables
+- [x] ST-02 Tax regime per employee per year (new regime default)
+- [x] ST-03 Investment declarations + proofs before January, verified by HR & Accounts
+- [x] ST-04 Monthly TDS projected on full-year income, adjusted monthly and in Q4
+- [x] ST-05 Challan details against each month's TDS
+- [x] ST-06 Form 24Q quarterly file (Protean / TRACES FVU) — _layout to be run through the FVU before the first filing (to confirm per organisation)_
+- [x] ST-07 Form 16 Part B generated; Part A imported; both published to employee
+- [x] ST-08 Statutory calendar on dashboard, reminders 5 days before due
+- [x] ST-09 Every file previewed, Admin-approved, logged with checksum
+- [x] S-50 GPF & NPS · S-51 Tax declarations · S-52 Statutory files · S-53 Form 16
+
+### Module 10 — Pension (§10)
+- [x] PN-01 Pensioner record: PPO, type, basic pension, commuted amount & date, DOB, bank, family — _additions from the old records and every change go to a Checker_
+- [x] PN-02 Pension payroll: basic + DR (= DA rate) + fixed medical allowance − commutation; same five stages — _pay group "Pensioners": OTP approval, bank file to the pensioner's account by PPO, prints, close; months not yet paid here are caught up on the next slip; TDS on own pension_
+- [x] PN-03 Commuted portion restored after 15 years automatically — _by days in the month of restoration; 29 Feb → 1 Mar_
+- [x] PN-04 Additional pension at 80 and later slabs — _from the 1st of the month of turning 80 / 85 / 90 / 95 / 100, on basic pension, DR on both_
+- [x] PN-05 DR change → arrears for all pensioners in one job — _due vs drawn for the months paid, one supplementary pension bill_
+- [x] PN-06 Life certificate status (manual / Jeevan Pramaan upload), SMS reminder, pension held after one month overdue — _November cycle; upload checked by Pension in Approvals; the bill holds by itself and pays the held months next time_
+- [x] PN-07 Retirement alerts at 12 and 6 months; no-dues checklist per section — _alerts on the case screen and in Home "My work"; dues recovered from the benefits_
+- [x] PN-08 New pension case calculator: qualifying service, emoluments, pension, commutation, gratuity, leave encashment, GPF final, family pension — _from the service book, approved pay bills, leave ledger, GPF ledger; NPS staff: gratuity and leave encashment_
+- [x] PN-09 Case prepared (Pension), checked (Checker), approved (Admin); PPO PDF — _bilingual PPO stored at approval for physical signature_
+- [x] PN-10 Retiree moves to pensioner group the day after retirement; gratuity, commutation, encashment in supplementary bill — _leaves the rolls (status, service book), GPF account closed_
+- [x] PN-11 Death: pension stops, family pension next day, overpayment recovered — _pensioner or employee in service; recovery from family pension (≤ ⅓ a month) or from the benefits_
+- [x] PN-12 Pension slip by SMS / email; pensioner login with mobile + OTP — _retirees keep their login; family pensioners get their own; Home, slips, life certificate, record_
+- [x] All formulas as editable tables (pension %, commutation factors, gratuity, slab ages) — _dated rates (Pension group) + dated commutation table through Admin approval_
+- [x] S-60 Pensioners · S-61 Pension payroll · S-62 Pension case & PPO
+
+**Carried over with the pay core (the original's client add-ons):**
+- [x] C2 Suspension and leaving service (resignation, removal, dismissal, termination, contract end, transfer out) with a full and final settlement that takes every outstanding loan and recovery — _HR records with the order, Checker + Admin approve; reinstatement the same; the statement (withheld pay, leave encashment by kind of leaving, every loan with interest, pay drawn after the last day, instalments still to come, lines by order) goes to a Checker and an Admin; the net is paid by a settlement bill whose approval closes the loans and the GPF account, or the person pays back the excess receipt by receipt; statement PDF_
+- [x] C3 Arrears of a DA rate / increment paid late, worked out by days when the change falls inside a month
+- [x] C4 DA and transport allowance (with DA on it) year by year, with each revision's step
+- [x] C6 Bank salary file as Excel (text file kept as a setting)
+- [x] C3a A back-dated promotion, MACP or increment works out the increments recorded after it again (or withdraws them)
+- [x] C2a Leaving mid-month with a loan: a pre-check asks Payroll to hold the last pay (the settlement recovers the loan from it) or explain why it is paid
+
+**New in Kosh for Modules 7–10:**
+- [x] Every service reads through the organisation's own client; the 27 new tables carry `tenantId`, RLS and same-organisation keys (the isolation test covers them automatically)
+- [x] Outgoing files (bank, return, statutory, Form 16, PPO) are StoredFiles of the organisation, registered and released through maker-checker (`core/files`)
+- [x] Pay bills are signed with a one-time code tied to that bill (`core/auth/sign.ts`); a code for one bill cannot sign another
+- [x] SMS and e-mail per organisation (Settings → SMS gateway, E-mail); texts carry the organisation's name, keys stay in server variables
+- [x] Statutory settings per organisation (deductor, TAN, PAN, DDO, EPF, ESIC, metro HRA, professional tax slabs); deductor name and address fall back to the organisation profile
+- [x] PPO numbers start with the organisation's code; letterheads, payslips and statements carry the organisation's name
+- [x] Starter pack: dated pay rates, pay heads, income-tax slabs (this and last year), statutory due dates, commutation table
+- [x] A family pensioner's own login (no employee record) signs in to the pension view
+- [ ] Employee profile Overview, Payslips and Leave tabs (C1, C1b) — with Module 12 (reports), which shares their summaries
+
+### Modules 11–13
+Feature lists follow the original's PLAN (RO-, reports, Ask rows) and are copied here, row by row, when each module
+starts, so each is ticked against the same requirement IDs.
