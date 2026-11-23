@@ -12,6 +12,10 @@ import { tenantDb } from "@/core/tenancy/scoped";
 import { provisionTenant } from "@/platform/provision";
 import { DEMO_PASSWORD, DEMO_TENANTS } from "./seed-demo";
 import { DEMO_STAFF, SMC_STAFF, seedEmployees } from "./seed-employees";
+import { DEMO_DEVICE, seedAttendance } from "./seed-attendance";
+import { syncDevices } from "@/core/tenancy/devices";
+import { todayIST } from "@/core/dates";
+import { installersFor } from "@/platform/packs";
 
 async function seedOwner() {
   const email = (process.env.PLATFORM_OWNER_EMAIL ?? "owner@kosh.local").toLowerCase();
@@ -38,6 +42,47 @@ async function seedTenant(demo: (typeof DEMO_TENANTS)[number], ownerId: string) 
   return { tenant, created: true };
 }
 
+/**
+ * Pack parts added to Kosh after a demo organisation was made (leave rules, holidays, the pay matrix) are installed
+ * once, part by part, when their table is still empty — so an old development database catches up.
+ */
+async function topUpPack(tenantId: string, modules: string[]) {
+  const db = tenantDb(tenantId);
+  const empty: Record<string, () => Promise<boolean>> = {
+    "pay-matrix": async () => (await db.payMatrix.count()) === 0,
+    "leave-rules": async () => (await db.leaveType.count()) === 0,
+    "national-holidays": async () => (await db.holiday.count()) === 0,
+  };
+  for (const part of installersFor("GOI_7CPC")) {
+    if (!empty[part.key] || (part.module && !modules.includes(part.module)) || !(await empty[part.key]())) continue;
+    await db.$transaction((tx) => part.install(tx, { tenantId, kind: "CANTONMENT_BOARD", modules: modules as never, today: todayIST() }));
+  }
+}
+
+/** Punches, a locked month, requests and leave for the DEMO organisation, from the original demo data. */
+async function seedDemoAttendance(tenantId: string) {
+  const db = tenantDb(tenantId);
+  const [employees, users, hr] = await Promise.all([
+    db.employee.findMany({ where: { status: "ACTIVE" }, include: { section: true } }),
+    db.user.findMany({ where: { employeeId: { not: null } } }),
+    db.user.findFirstOrThrow({ where: { loginId: "HR01" } }),
+  ]);
+  const byEmployee = new Map(users.map((u) => [u.employeeId!, u]));
+  const userMap = new Map<string, { id: string; name: string }>();
+  for (const e of employees) {
+    const u = byEmployee.get(e.id);
+    if (u && e.employeeCode) userMap.set(e.employeeCode, { id: u.id, name: u.name });
+  }
+  await syncDevices(tenantId, [DEMO_DEVICE]);
+  await seedAttendance(
+    db,
+    tenantId,
+    employees.map((e) => ({ id: e.id, code: e.employeeCode!, sectionCode: e.section.code, sectionId: e.sectionId, doj: e.dateOfJoining.toISOString().slice(0, 10), gender: e.gender, type: e.type })),
+    userMap,
+    { id: hr.id, name: hr.name },
+  );
+}
+
 async function main() {
   const owner = await seedOwner();
   console.log(`Platform owner: ${owner.email}`);
@@ -45,7 +90,10 @@ async function main() {
   for (const demo of DEMO_TENANTS) {
     const { tenant, created } = await seedTenant(demo, owner.id);
     const staff = demo.code === "DEMO" ? DEMO_STAFF : SMC_STAFF;
-    const people = await seedEmployees(tenantDb(tenant.id), tenant.id, tenant.code, staff, demo.code === "DEMO" ? 1 : 2, DEMO_PASSWORD);
+    const db = tenantDb(tenant.id);
+    await topUpPack(tenant.id, tenant.modules);
+    const people = await seedEmployees(db, tenant.id, tenant.code, staff, demo.code === "DEMO" ? 1 : 2, DEMO_PASSWORD);
+    if (demo.code === "DEMO") await seedDemoAttendance(tenant.id);
     console.log(`${created ? "Created" : "Kept"} ${tenant.name} (${tenant.code})${people ? ` with ${people} employees` : ""}`);
   }
   console.log(`Demo password for every demo login: ${DEMO_PASSWORD}`);

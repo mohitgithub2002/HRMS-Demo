@@ -25,7 +25,6 @@ export const DEFAULT_DOCUMENT_TYPES = [
 ];
 
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
-const weekdays = z.string().regex(/^[0-6](,[0-6])*$|^$/);
 
 export const SETTINGS = {
   /** Settings → How work is approved. */
@@ -39,17 +38,31 @@ export const SETTINGS = {
       mobileOtpLogin: z.boolean(),
     })
     .default({ loginOtp: true, mobileOtpLogin: true }),
-  /** Office hours and the attendance month (AT-03, AT-05). */
+  /**
+   * Office hours and the attendance month (AT-03, AT-05), and the biometric devices allowed to push punches (AT-01).
+   * A device's serial number is also registered for the whole installation, so a push finds its organisation.
+   */
   attendance: z
     .object({
       officeStart: hhmm,
+      /** Late after office start + grace. */
       graceMinutes: z.number().int().min(0).max(120),
-      halfDayAfter: hhmm,
-      officeEnd: hhmm,
-      weeklyOff: weekdays,
+      /** Less than this many minutes between first and last punch is a half day. */
+      halfDayMinutes: z.number().int().min(60).max(600),
+      /** 0 = Sunday … 6 = Saturday. */
+      weeklyOff: z.array(z.number().int().min(0).max(6)).max(3),
+      /** Last month must be locked by this day of the month. */
       lockDay: z.number().int().min(1).max(28),
+      devices: z
+        .array(
+          z.object({
+            serial: z.string().trim().min(3, "validation.required").max(40).regex(/^[A-Za-z0-9_-]+$/, "validation.invalid"),
+            name: z.string().trim().max(80),
+          }),
+        )
+        .max(50),
     })
-    .default({ officeStart: "09:30", graceMinutes: 10, halfDayAfter: "11:00", officeEnd: "18:00", weeklyOff: "0", lockDay: 25 }),
+    .default({ officeStart: "09:00", graceMinutes: 15, halfDayMinutes: 240, weeklyOff: [0, 6], lockDay: 25, devices: [] }),
   /** Statutory and bank identity of the organisation (TAN, DDO, PF, ESIC …). */
   statutoryIds: z
     .object({

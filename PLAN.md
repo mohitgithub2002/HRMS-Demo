@@ -128,8 +128,8 @@ in a browser, rows ticked here.
 | 2 | Platform console: organisations, provisioning with packs, modules, suspend, platform users, usage, audit | [x] |
 | 3 | Organisation setup: guided setup checklist, organisation profile, sections, posts, users & roles, settings; setup guide | [x] |
 | 4 | Employee master: records, IDs, family & nominees, documents, service book, change requests, sanctioned posts, bulk upload | [x] |
-| 5 | Attendance & holidays: punch imports, muster, daily status, requests, month lock, today board | [ ] |
-| 6 | Leave: rules, credits, apply & decide, ledger, opening balances | [ ] |
+| 5 | Attendance & holidays: punch imports, muster, daily status, requests, month lock, today board | [x] |
+| 6 | Leave: rules, credits, apply & decide, ledger, opening balances | [x] |
 | 7 | Payroll: rates & rules, pay items, monthly run (pre-checks, stages), pay bill, bank file, payslips | [ ] |
 | 8 | Pay changes, arrears, loans & advances | [ ] |
 | 9 | Statutory & tax: GPF, NPS, EPF, ESIC, TDS projection, declarations, 24Q, Form 16, calendar | [ ] |
@@ -195,6 +195,27 @@ unit tests for every rule, an isolation test for every new table; checks green.
 - [x] Screens: Employees list (search, filters), profile (Personal · Job & Pay · Bank & IDs · Family · Documents · Service book · History), edit, add (4 steps), bulk upload, sanctioned posts, change requests, scanned service books; My record and My requests for employees
 - [ ] Overview tab, Leave and Payslips tabs on the profile — with Modules 6–7; suspension and leaving service — with Module 8
 
-### Modules 5–13
+### Module 5 — Attendance & holidays (§6)
+- [x] AT-01 Punch files (eSSL, ZKTeco, Mantra, AEBAS, own template) checked line by line before saving; files kept as the organisation's own; device push (`/iclock`) — the device's serial number finds its organisation through the installation-wide device register (new in Kosh), devices of a paused organisation are refused
+- [x] AT-02 Muster roll and HR corrections, sent as one batch
+- [x] AT-03 Daily status worked out from the rules (office start, grace, half-day minutes are settings; defaults are the central government's: 09:00, 15 minutes, Saturday and Sunday off)
+- [x] AT-04 Missed-punch / on-duty requests decided by the section head
+- [x] AT-05 Month lock with every exception decided (present, on duty, dies-non, treat as leave); totals frozen for payroll; reopening through a Checker
+- [x] AT-06 Days worked for contract and daily-wage staff
+- [x] AT-07 Today board by section
+- [x] AT-08 Holiday calendar per year (the starter pack adds the three fixed national holidays for this year and next); weekly off and attendance mode per section
+- [x] Screens: Attendance (Today · Register · Lock · Requests · Import), Holidays, My attendance, My team
+
+### Module 6 — Leave (§7)
+- [x] LV-01 Leave rules table (starter pack: the central rules), changes through an Admin
+- [x] LV-02 Automatic credits once per person per period (checked once a day per organisation), pro-rata for joiners
+- [x] LV-03 Apply with a live preview, approve / reject / send back, withdraw, cancel
+- [x] LV-04 Approved leave marks attendance; half-pay and no-pay leave carried to the month totals
+- [x] LV-05 HR enters leave sanctioned on paper
+- [x] LV-06 Opening balances from Excel through a Checker
+- [x] LV-07 Leave account per employee on screen and as a bilingual PDF
+- [x] Screens: Leave (mine), Apply, Team leave, Leave management (applications, balances, enter, opening, rules), application page, ledger
+
+### Modules 7–13
 Feature lists follow the original's PLAN (EM-, RO-, AT-, LV-, PR-, SL-, ST-, PN- rows) and are copied here, row by
 row, when each module starts, so each is ticked against the same requirement IDs.

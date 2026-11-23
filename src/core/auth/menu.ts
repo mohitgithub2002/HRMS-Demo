@@ -29,7 +29,7 @@ interface Def extends MenuItem {
 }
 
 /** Screens that exist in this build (see the file comment). */
-export const BUILT = new Set<string>(["/", "/approvals", "/admin", "/profile", "/employees", "/my/record", "/my/requests"]);
+export const BUILT = new Set<string>(["/", "/approvals", "/admin", "/profile", "/employees", "/my/record", "/my/requests", "/attendance", "/leave", "/my/attendance", "/my/team"]);
 
 const always: Rule = () => true;
 const hasPerm = (...perms: string[]): Rule => (p) => p.permissions.some((x) => perms.includes(x));

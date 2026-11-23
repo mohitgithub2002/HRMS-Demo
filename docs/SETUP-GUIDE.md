@@ -215,8 +215,9 @@ warning).
 
 ### C8. Office hours — *Settings → Office hours*
 
-Office start (e.g. 09:30), grace minutes (10), half day if in after (11:00), office end (18:00), weekly off (Sunday;
-add Saturday for a five-day week), and the day of the month by which last month's attendance must be locked (25).
+Office start (09:00), grace minutes (15), half day if fewer than this many minutes are worked between the first and
+last punch (240), weekly off (Saturday and Sunday by default — choose only Sunday for a six-day week), the day of
+the month by which last month's attendance must be locked (25), and the biometric devices (Part F2).
 
 ### C9. Salary bank — *Settings → Salary bank*
 
@@ -344,7 +345,7 @@ head* role; they then see and decide for their own section only (moving them to 
 
 ## Part F — Attendance and leave
 
-🔜 Arrives with Modules 5 (Attendance) and 6 (Leave)
+✅ Available now · **Attendance & leave**
 
 ### F1. Holiday calendar
 
@@ -353,8 +354,10 @@ holidays cannot change.
 
 ### F2. Biometric devices
 
-Import punch files from eSSL, ZKTeco (attlog.dat or export), Mantra, AEBAS or the Kosh template; or let eSSL /
-ZKTeco devices push to Kosh (registered serial numbers only). Only new punches are saved; each file is kept with
+Import punch files from eSSL, ZKTeco (attlog.dat or export), Mantra, AEBAS or the Kosh template (Attendance →
+Import); or let eSSL / ZKTeco devices push to Kosh: list each device's serial number under Settings → Office hours →
+Biometric devices, and point the device's server address ("ADMS") at your Kosh address (`https://<your-kosh>/iclock`).
+A serial number belongs to one organisation only — Kosh uses it to file the punches under the right organisation. Only new punches are saved; each file is kept with
 its checksum. Sections without devices use the **muster**.
 
 ### F3. Daily status

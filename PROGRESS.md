@@ -11,7 +11,9 @@ What has changed, what was verified, what is pending. The module checklist is in
 | 2 | Platform console | 🟢 Done & verified |
 | 3 | Organisation setup (checklist, profile, sections, posts, users & roles, settings, audit) + setup guide | 🟢 Done & verified |
 | 4 | Employee master | 🟢 Done & verified (overview, leave and payslip tabs come with their modules) |
-| 5–13 | Attendance, leave, payroll, pay changes & loans, statutory, pension, recruitment, reports, Ask | ⚪ Pending |
+| 5 | Attendance & holidays | 🟢 Done & verified |
+| 6 | Leave | 🟢 Done & verified |
+| 7–13 | Payroll, pay changes & loans, statutory, pension, recruitment, reports, Ask | ⚪ Pending (Payroll next) |
 
 🟢 Done & verified · 🟡 In progress · ⚪ Pending
 
@@ -32,6 +34,23 @@ What has changed, what was verified, what is pending. The module checklist is in
 | Same dependency versions as the original | Known to work together (Next 16.4.2, Prisma 7.10.1, React 19.2) |
 
 ## Change log (newest first)
+
+### 2026-11-23 — Modules 5 and 6: attendance, holidays and leave ✅
+- Ported together (the month lock treats an unexplained day as leave; approved leave marks attendance) with the
+  original's rules, punch-file formats, screens and wording.
+- **New in Kosh:** an installation-wide **device register** — a biometric device's serial number decides its
+  organisation (a push arrives without anyone signed in); a serial belongs to one organisation only; devices of a
+  paused organisation are refused. Starter pack: the central leave rules and the three fixed national holidays.
+  Setup checklist: holidays and leave opening balances.
+- Every ported table has real relations for its employee / section references, so the same-organisation keys cover
+  them (porting tools in `scripts/port/`).
+- Defaults changed to the central government's: office 09:00, 15 minutes' grace, Saturday and Sunday off.
+- Fixed while porting: the approval page posted to a route named differently (`/decision`).
+- Tests: the original's attendance-rule, punch-format and leave-rule unit tests and its attendance, leave and
+  approvals integration tests now run on a tenant-aware factory — 207 tests in total, all passing.
+- Verified in a browser: 22 attendance and leave screens for HR, a section head and an employee (phones for the
+  last two) — no errors, nothing scrolls sideways; the section head approved a CL application (balance 8 → 6, both
+  days marked as leave) and a missed-punch request (day regularised).
 
 ### 2026-11-23 — Module 4: employee master ✅
 - Ported from the original and adapted to tenancy: records with encrypted identity numbers (per-organisation keys),

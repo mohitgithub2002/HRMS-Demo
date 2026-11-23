@@ -20,7 +20,7 @@ export function TaskActions({ id, mode }: { id: string; mode: "decide" | "withdr
     setBusy(decision);
     try {
       if (decision === "WITHDRAW") await api(`/api/v1/approvals/${id}/withdraw`, { body: {} });
-      else await api(`/api/v1/approvals/${id}/decide`, { body: { decision, note: note || undefined } });
+      else await api(`/api/v1/approvals/${id}/decision`, { body: { decision, note: note || undefined } });
       toast(t("common.saved"));
       router.refresh();
     } catch (e) {

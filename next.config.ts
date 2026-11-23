@@ -13,7 +13,16 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  serverExternalPackages: ["playwright-core", "exceljs"],
+  serverExternalPackages: ["playwright-core", "@sparticuz/chromium", "exceljs"],
+  // Files read at run time that the bundler cannot see: the fonts embedded in PDFs and the serverless Chromium.
+  outputFileTracingIncludes: {
+    "/**": [
+      "./node_modules/playwright-core/**/*",
+      "./node_modules/@sparticuz/chromium/**/*",
+      "./node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
+      "./node_modules/@fontsource/noto-sans-devanagari/files/noto-sans-devanagari-devanagari-*-normal.woff2",
+    ],
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

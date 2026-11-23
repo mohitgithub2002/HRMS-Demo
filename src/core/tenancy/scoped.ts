@@ -19,7 +19,7 @@ import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { rawDb } from "./raw";
 
 /** Tables of the platform itself: no tenantId, never reachable through a tenant client. */
-export const PLATFORM_MODELS = new Set<string>(["Tenant", "PlatformUser", "PlatformSession", "PlatformAudit", "Session", "OtpChallenge"]);
+export const PLATFORM_MODELS = new Set<string>(["Tenant", "PlatformUser", "PlatformSession", "PlatformAudit", "Session", "OtpChallenge", "DeviceRegistration"]);
 
 /** Typed as the full client so services read naturally; at run time it is the guarded proxy below. */
 export type TenantDb = PrismaClient;

@@ -26,4 +26,6 @@
   dark). Components in `src/components/ui`. One solid primary button per screen; `font-display` for titles and
   figures; wide tables use `<Table stack>` with `<Td label>`; nothing may scroll sideways on a phone.
 - **Money:** `src/core/money.ts` (paise maths, rupee rounding). **Dates:** `src/core/dates.ts` (ISO strings, India time).
+- **Porting from the original:** `scripts/port/` (schema, code, a second pass for `boardId` helpers, tests, wording) —
+  mechanical first, then fixed by hand until checks are green and the screens are checked in a browser.
 - **Checks before commit:** `npm run typecheck && npm run lint && npm test && npm run build`.

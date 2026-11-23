@@ -61,11 +61,22 @@ export function SettingsForms({ initial }: { initial: AllSettings }) {
         <CardBody className="grid gap-4 sm:grid-cols-2">
           <Input type="time" label={t("settings.attendance.officeStart")} value={s.attendance.officeStart} onChange={(e) => patch("attendance", { officeStart: e.target.value })} error={fields.officeStart} />
           <Input type="number" min={0} max={120} label={t("settings.attendance.graceMinutes")} value={s.attendance.graceMinutes} onChange={(e) => patch("attendance", { graceMinutes: Number(e.target.value) })} />
-          <Input type="time" label={t("settings.attendance.halfDayAfter")} value={s.attendance.halfDayAfter} onChange={(e) => patch("attendance", { halfDayAfter: e.target.value })} />
-          <Input type="time" label={t("settings.attendance.officeEnd")} value={s.attendance.officeEnd} onChange={(e) => patch("attendance", { officeEnd: e.target.value })} />
+          <Input type="number" min={60} max={600} label={t("settings.attendance.halfDayMinutes")} hint={t("settings.attendance.halfDayHint")} value={s.attendance.halfDayMinutes} onChange={(e) => patch("attendance", { halfDayMinutes: Number(e.target.value) })} />
           <Input type="number" min={1} max={28} label={t("settings.attendance.lockDay")} value={s.attendance.lockDay} onChange={(e) => patch("attendance", { lockDay: Number(e.target.value) })} />
           <div className="sm:col-span-2">
-            <WeekdayPicker label={t("settings.attendance.weeklyOff")} value={s.attendance.weeklyOff} onChange={(v) => patch("attendance", { weeklyOff: v })} />
+            <WeekdayPicker label={t("settings.attendance.weeklyOff")} value={s.attendance.weeklyOff.join(",")} onChange={(v) => patch("attendance", { weeklyOff: v ? v.split(",").map(Number) : [] })} />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <p className="text-[0.8125rem] font-medium text-ink-2">{t("settings.attendance.devices")}</p>
+            <p className="text-xs text-muted">{t("settings.attendance.devicesHint")}</p>
+            {s.attendance.devices.map((d, i) => (
+              <div key={i} className="flex gap-2">
+                <Input aria-label={t("settings.attendance.serial")} placeholder={t("settings.attendance.serial")} value={d.serial} onChange={(e) => patch("attendance", { devices: s.attendance.devices.map((x, j) => (j === i ? { ...x, serial: e.target.value.trim() } : x)) })} containerClassName="flex-1" />
+                <Input aria-label={t("settings.attendance.deviceName")} placeholder={t("settings.attendance.deviceName")} value={d.name} onChange={(e) => patch("attendance", { devices: s.attendance.devices.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)) })} containerClassName="flex-1" />
+                <Button variant="ghost" onClick={() => patch("attendance", { devices: s.attendance.devices.filter((_, j) => j !== i) })}>{t("common.remove")}</Button>
+              </div>
+            ))}
+            <Button size="sm" onClick={() => patch("attendance", { devices: [...s.attendance.devices, { serial: "", name: "" }] })}>{t("settings.attendance.addDevice")}</Button>
           </div>
         </CardBody>
         {footer("attendance")}
