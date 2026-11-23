@@ -16,7 +16,7 @@
  * Not "server-only": the seed and the provisioning scripts run it too.
  */
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
-import { rawDb } from "./raw";
+import { DB_TX_MAX_WAIT_MS, DB_TX_TIMEOUT_MS, rawDb } from "./raw";
 
 /** Tables of the platform itself: no tenantId, never reachable through a tenant client. */
 export const PLATFORM_MODELS = new Set<string>(["Tenant", "PlatformUser", "PlatformSession", "PlatformAudit", "Session", "OtpChallenge", "DeviceRegistration"]);
@@ -85,7 +85,7 @@ function build(tenantId: string): TenantDb {
     query: {
       $allModels: {
         async $allOperations({ args, query }) {
-          const [, result] = await inner.$transaction([inner.$executeRaw(setTenantSql(tenantId)), query(args)]);
+          const [, result] = await inner.$transaction([inner.$executeRaw(setTenantSql(tenantId)), query(args)], { maxWait: DB_TX_MAX_WAIT_MS, timeout: DB_TX_TIMEOUT_MS });
           return result;
         },
       },
@@ -98,7 +98,7 @@ function build(tenantId: string): TenantDb {
       await tx.$executeRaw(setTenantSql(tenantId));
       txTenant.set(tx as object, tenantId);
       return fn(tx as unknown as Tx);
-    }, { timeout: 20_000, maxWait: 10_000, ...options });
+    }, { timeout: DB_TX_TIMEOUT_MS, maxWait: DB_TX_MAX_WAIT_MS, ...options });
   }
 
   const refuseRaw = () => {

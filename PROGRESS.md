@@ -44,6 +44,17 @@ What has changed, what was verified, what is pending. The module checklist is in
 
 ## Change log (newest first)
 
+### 2026-11-24 — Fix: "Unable to start a transaction in the given time" (P2028) on Neon
+- Every query runs in a short transaction (it sets the organisation for row-level security); those used Prisma's
+  2-second wait for a connection, too short for a serverless database waking up or a page that fires many queries at
+  once. All transactions now wait up to `DB_TX_MAX_WAIT_MS` (20 s), the pool waits `DB_CONNECT_TIMEOUT_MS` for a
+  connection, and idle connections are released (`DB_IDLE_TIMEOUT_MS`) so the database can sleep.
+- Home's daily jobs (people leaving the rolls, filing reminders, pension jobs) ran on nearly every visit on a serverless
+  host (each cold start is a new process) and all at once; they now run once a day per organisation, recorded in the
+  database (`core/daily.ts`), one after another.
+- Reproduced with a pool of 2 and two long transactions: before, 20 of 20 waiting reads failed with P2028; after,
+  none. Setup guide: a section on hosting on Neon (pooled and direct addresses, region, settings).
+
 ### 2026-11-23 — Help Centre (/help) ✅
 - An interactive question-and-answer guide for people who have never used an HR and payroll system: about 105
   questions in 14 topics (getting started, organisation, users and permissions, employees, attendance, leave, pay

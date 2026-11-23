@@ -71,6 +71,24 @@ Fill in:
 | `STORAGE_DRIVER` | `disk` on your own server, `database` on Vercel |
 | `PLATFORM_OWNER_EMAIL`, `PLATFORM_OWNER_PASSWORD` | The first person who will open the platform console |
 
+#### Hosting the database on Neon (or another serverless PostgreSQL)
+
+| Setting | What to put |
+|---|---|
+| `DATABASE_URL` | Neon's **pooled** connection string (the host contains `-pooler`), ending in `?sslmode=require`. The app uses it for every request. |
+| `DIRECT_DATABASE_URL` | Neon's **direct** connection string (no `-pooler`). Migrations and the seed use it. |
+| `DB_POOL_MAX` | Connections each app instance may open — `10` (the default) suits Neon's pooler. |
+| `DB_TX_MAX_WAIT_MS`, `DB_CONNECT_TIMEOUT_MS` | How long a query waits for a connection — `20000` by default. A Neon database that has gone to sleep takes a second or two to wake; the default covers it. |
+
+- **Put the app and the database in the same region** (for example both in Mumbai / `ap-south-1`). Kosh runs every query in
+  a short transaction that sets the organisation for row-level security, so each query is several round trips; across
+  continents a page can take seconds and queries queue up for connections.
+- The error *"Transaction API error: Unable to start a transaction in the given time" (P2028)* means queries waited
+  longer than `DB_TX_MAX_WAIT_MS` for a connection: check the region first, then raise `DB_TX_MAX_WAIT_MS` or
+  `DB_POOL_MAX`.
+- If the server log shows *"The database login bypasses row-level security"*, the login has the BYPASSRLS attribute:
+  use an ordinary login for `DATABASE_URL` (in production Kosh refuses to start without one).
+
 ### A4. Install and start
 
 ```bash

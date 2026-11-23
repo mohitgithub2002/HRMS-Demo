@@ -9,7 +9,7 @@
  * meant to be visible in review.
  */
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
-import { rawDb } from "./raw";
+import { DB_TX_MAX_WAIT_MS, DB_TX_TIMEOUT_MS, rawDb } from "./raw";
 import type { Tx } from "./scoped";
 
 export function platformDb(): PrismaClient {
@@ -22,7 +22,7 @@ export async function acrossTenants<T>(fn: (tx: Tx) => Promise<T>, options?: { t
       await tx.$executeRaw(Prisma.sql`SELECT set_config('app.platform', 'on', true)`);
       return fn(tx);
     },
-    { timeout: options?.timeout ?? 20_000, maxWait: 10_000 },
+    { timeout: options?.timeout ?? DB_TX_TIMEOUT_MS, maxWait: DB_TX_MAX_WAIT_MS },
   );
 }
 
