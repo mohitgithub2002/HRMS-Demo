@@ -29,7 +29,7 @@ export default async function SetupPage() {
       <Card className="mb-6 p-5 sm:p-6">
         <div className="flex items-center justify-between gap-4">
           <p className="text-sm font-semibold text-ink">{t("setup.progress", { done: s.done, total: s.total })}</p>
-          <a href="https://github.com/mohitgithub2002/HRMS-Demo/blob/main/docs/SETUP-GUIDE.md" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:underline dark:text-brand-300">
+          <a href="/help" className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:underline dark:text-brand-300">
             <BookOpen className="size-4" /> {t("setup.guide")}
           </a>
         </div>

@@ -28,6 +28,8 @@ export const nav = {
   myTeam: "मेरी टीम",
   pensionSlips: "पेंशन पर्ची",
   lifeCertificate: "जीवन प्रमाण पत्र",
+  helpCentre: "सहायता केंद्र",
+  helpQuestion: "कोश में नए हैं?",
   more: "और",
   ask: "पूछें",
   menu: "मेनू",

@@ -28,6 +28,8 @@ export const nav = {
   myTeam: "My team",
   pensionSlips: "Pension slips",
   lifeCertificate: "Life certificate",
+  helpCentre: "Help Centre",
+  helpQuestion: "New to Kosh?",
   more: "More",
   ask: "Ask",
   menu: "Menu",

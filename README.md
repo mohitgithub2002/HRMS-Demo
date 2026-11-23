@@ -28,6 +28,8 @@ npm run dev                   # http://localhost:3000
 
 ### Demo sign-ins (development and training copies)
 
+The **Help Centre** at `/help` answers every setup question step by step (no sign-in needed).
+
 Password for every demo login: **`Kosh@2026`**. With `SMS_PROVIDER=console` the one-time code is shown on screen.
 The DEMO organisation has two closed months of payroll and pension, this month ready to work out, a vacancy with
 applicants, a leaver to settle, and Ask AI switched on — with `ASK_AI_PROVIDER="scripted"` a practice stand-in answers

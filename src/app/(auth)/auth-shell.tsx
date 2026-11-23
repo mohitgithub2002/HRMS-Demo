@@ -1,4 +1,5 @@
 import { Building2, ShieldCheck, Wallet } from "lucide-react";
+import Link from "next/link";
 import { BrandWordmark } from "@/components/brand/mark";
 import { LanguageSwitch } from "@/components/shell/language-switch";
 import { getT } from "@/core/i18n/server";
@@ -54,6 +55,10 @@ export async function AuthShell({ children, accent }: { children: React.ReactNod
         <div className="flex flex-1 items-center justify-center py-10">
           <div className="w-full max-w-[25rem] animate-slide-up">{children}</div>
         </div>
+        <p className="text-center text-sm text-muted">
+          {t("nav.helpQuestion")}{" "}
+          <Link href="/help" className="font-semibold text-brand-700 hover:underline dark:text-brand-300">{t("nav.helpCentre")}</Link>
+        </p>
       </main>
     </div>
   );

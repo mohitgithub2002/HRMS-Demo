@@ -1,10 +1,10 @@
 "use client";
 
-import { Banknote, Clock, FileText, Landmark, Mail, MessageSquareText, ShieldCheck, Workflow } from "lucide-react";
+import { Banknote, Clock, FileStack, FileText, Landmark, Mail, MessageSquareText, ShieldCheck, Workflow } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardFooter, CardHeader } from "@/components/ui/card";
-import { Input, Select, Switch, Textarea } from "@/components/ui/field";
+import { Checkbox, Input, Select, Switch, Textarea } from "@/components/ui/field";
 import { useT } from "@/core/i18n/client";
 import type { AllSettings } from "@/modules/settings/store";
 import { BANK_FORMATS, type SettingKey } from "@/modules/settings/schema";
@@ -20,6 +20,9 @@ export function SettingsForms({ initial }: { initial: AllSettings }) {
   const [saving, setSaving] = useState<SettingKey | null>(null);
   const patch = <K extends SettingKey>(k: K, v: Partial<AllSettings[K]>) => setS((x) => ({ ...x, [k]: { ...x[k], ...v } }));
   const st = s.statutory;
+  // A saved document type keeps its code (files already use it); new rows can still change theirs.
+  const savedCodes = new Set(initial.documents.types.map((x) => x.code));
+  const setDocType = (i: number, v: Partial<AllSettings["documents"]["types"][number]>) => patch("documents", { types: s.documents.types.map((x, k) => (k === i ? { ...x, ...v } : x)) });
   const setSt = (v: Partial<AllSettings["statutory"]>) => patch("statutory", v);
   const save = async (k: SettingKey) => {
     setSaving(k);
@@ -173,6 +176,33 @@ export function SettingsForms({ initial }: { initial: AllSettings }) {
           </div>
         </CardBody>
         {footer("email")}
+      </Card>
+
+      <Card id="documents" className="xl:col-span-2 scroll-mt-24">
+        <CardHeader icon={<FileStack />} title={t("settings.docTypes")} description={t("settings.docTypesHint")} />
+        <CardBody className="space-y-2">
+          <div className="hidden grid-cols-[9rem_minmax(0,1fr)_minmax(0,1fr)_7rem_6rem_6rem] gap-2 text-xs font-semibold uppercase tracking-wide text-muted md:grid">
+            <span>{t("settings.docCode")}</span>
+            <span>{t("settings.docName")}</span>
+            <span>{t("settings.docNameHi")}</span>
+            <span>{t("settings.docMaxMb")}</span>
+            <span>{t("settings.docActive")}</span>
+            <span />
+          </div>
+          {s.documents.types.map((d, i) => (
+            <div key={i} className="grid grid-cols-1 gap-2 rounded-xl p-3 ring-1 ring-line md:grid-cols-[9rem_minmax(0,1fr)_minmax(0,1fr)_7rem_6rem_6rem] md:items-start md:p-0 md:ring-0">
+              <Input aria-label={t("settings.docCode")} value={d.code} disabled={savedCodes.has(d.code)} onChange={(e) => setDocType(i, { code: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "_") })} className="font-mono text-sm" />
+              <Input aria-label={t("settings.docName")} value={d.name} onChange={(e) => setDocType(i, { name: e.target.value })} />
+              <Input aria-label={t("settings.docNameHi")} value={d.nameHi} lang="hi" onChange={(e) => setDocType(i, { nameHi: e.target.value })} />
+              <Input aria-label={t("settings.docMaxMb")} type="number" min={1} max={50} value={d.maxMb} onChange={(e) => setDocType(i, { maxMb: Number(e.target.value) || 1 })} />
+              <Checkbox label={t("settings.docActive")} checked={d.active} onChange={(e) => setDocType(i, { active: e.target.checked })} />
+              {!savedCodes.has(d.code) ? <Button variant="ghost" onClick={() => patch("documents", { types: s.documents.types.filter((_, k) => k !== i) })}>{t("common.remove")}</Button> : <span />}
+            </div>
+          ))}
+          {fields.types && <p className="text-sm font-medium text-rose-700 dark:text-rose-300">{fields.types}</p>}
+          <Button size="sm" onClick={() => patch("documents", { types: [...s.documents.types, { code: "", name: "", nameHi: "", maxMb: 5, active: true }] })}>{t("settings.addDocType")}</Button>
+        </CardBody>
+        {footer("documents")}
       </Card>
 
       <Card id="payslip" className="scroll-mt-24">

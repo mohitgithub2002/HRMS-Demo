@@ -34,4 +34,6 @@
   `onFileReleased` hooks); pay bills are signed with `core/auth/sign.ts`. Messages: `core/connectors/sms.ts` and
   `email.ts` (per-organisation settings). The organisation's name / code for documents: `orgOf(db)` in
   `core/tenancy/tenant.ts` — never a hard-coded name. Tests install pack parts with `installPack(boardId, keys)`.
+- **Help Centre (`/help`):** a module that adds or changes a screen adds or updates its questions in
+  `src/modules/help/guide.ts` and `help.q.*` in both dictionaries (`tests/unit/help.test.ts` checks words, steps and links).
 - **Checks before commit:** `npm run typecheck && npm run lint && npm test && npm run build`.

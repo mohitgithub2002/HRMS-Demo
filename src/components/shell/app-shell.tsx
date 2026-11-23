@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CircleHelp,
   BarChart3,
   Fingerprint,
   HeartPulse,
@@ -219,6 +220,9 @@ export function AppShell(props: ShellProps) {
               <Sparkles className="size-4" aria-hidden="true" />
             </Link>
           )}
+          <Link href="/help" className="grid size-9 place-items-center rounded-xl text-muted hover:bg-sunken hover:text-ink" aria-label={t("nav.helpCentre")} title={t("nav.helpCentre")} data-testid="help-link">
+            <CircleHelp className="size-[1.1rem]" />
+          </Link>
           {props.counts.approvals > 0 && (
             <Link href="/approvals" className="relative grid size-9 place-items-center rounded-xl text-muted hover:bg-sunken hover:text-ink" aria-label={`${t("nav.approvals")} (${props.counts.approvals})`}>
               <Inbox className="size-[1.1rem]" />

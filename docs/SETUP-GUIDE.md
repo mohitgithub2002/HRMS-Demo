@@ -1,5 +1,9 @@
 # Kosh — the complete setup guide
 
+> **In the app:** the same guidance as questions and answers, with search, a first-day checklist and a button to
+> each screen, is at **`/help`** (the Help Centre — linked from the sign-in page, the top bar and Setup). This file is
+> the long-form version for the people who install and run Kosh.
+
 From an empty installation to an organisation that runs its HR every day and pays its people every month.
 
 This guide is written for three readers, in the order they work:

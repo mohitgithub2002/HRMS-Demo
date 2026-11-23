@@ -7,7 +7,7 @@ import { contentSecurityPolicy, HSTS } from "@/core/csp";
  *    /platform/login;
  *  - each page gets a fresh nonce and its Content Security Policy, and HSTS over HTTPS.
  */
-const PUBLIC = ["/login", "/o/", "/platform/login"];
+const PUBLIC = ["/login", "/o/", "/platform/login", "/help"];
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

@@ -44,6 +44,19 @@ What has changed, what was verified, what is pending. The module checklist is in
 
 ## Change log (newest first)
 
+### 2026-11-23 — Help Centre (/help) ✅
+- An interactive question-and-answer guide for people who have never used an HR and payroll system: about 105
+  questions in 14 topics (getting started, organisation, users and permissions, employees, attendance, leave, pay
+  rules, payroll, tax, pension, hiring, reports and Ask, self-service, troubleshooting), each with a plain answer,
+  numbered steps, a tip, who does it, an "Open this screen" button and related questions.
+- The first page holds the index of every question, the 14 topics, and a 13-step first-day path to the first salary
+  that a reader ticks off (kept on their device). Live search (press "/"), links to any answer (/help#q-…), open all
+  and print, English and Hindi, light and dark, phone layout.
+- Public: a new organisation can read it before its first sign-in. Linked from every sign-in page, the top bar and the
+  Setup checklist. Content is data (`modules/help/guide.ts` + `help` in the dictionaries); a test checks that every
+  question has its words in both languages, the declared number of steps, and links only to screens that exist.
+- New with it: Settings → Document types (the original's card), so the guide's answer is a screen that exists.
+
 ### 2026-11-23 — Module 13: Ask AI ✅ — every module of the plan is now built
 - Ported with its 52 views, the SQL guard (PostgreSQL's own parser), the read-only role, the pass, the documents, the
   three service adapters (Gemini, GPT, Claude on their official SDKs) and the practice stand-in; the Ask screen, the
