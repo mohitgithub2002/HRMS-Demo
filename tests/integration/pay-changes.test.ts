@@ -1,0 +1,246 @@
+import { beforeAll, describe, expect, it } from "vitest";
+import { decide } from "@/core/approvals/engine";
+import { seal } from "@/core/crypto";
+import { tenantDb } from "@/core/tenancy/scoped";
+import { maskMobile } from "@/core/auth/otp";
+import { shiftMonth, todayIST } from "@/core/dates";
+import { computeArrears, makeSupplementaryBill, previewArrears, withheldCandidates } from "@/modules/payroll/arrears";
+import { computeRun, recordLoanRecoveries, saveRun, undoLoanRecoveries } from "@/modules/payroll/compute";
+import { previewFixation, submitFixation } from "@/modules/payroll/fixation";
+import { incrementDueList, submitIncrements } from "@/modules/payroll/increments";
+import { getLoan, sanctionLoan } from "@/modules/payroll/loans";
+import { incrementDatesAround } from "@/modules/payroll/pay-rules";
+import { myPayslips, payslipPdf, sendPayslipNotices } from "@/modules/payroll/payslips";
+import { getRun, resolveException } from "@/modules/payroll/run";
+import { actorFor, hasTestDb, makeBoard, makePost, makeSection, makeUser, installPack } from "../support/factory";
+
+type Actor = Awaited<ReturnType<typeof actorFor>>;
+const pendingTask = (boardId: string, entityId: string) => tenantDb(boardId).approvalTask.findFirstOrThrow({ where: { entityId, status: "PENDING" }, orderBy: { createdAt: "desc" } });
+
+describe.skipIf(!hasTestDb)("pay changes, arrears, loans and payslips (PR-06 to PR-09, SL-01 to SL-05)", () => {
+  const today = todayIST();
+  const thisMonth = today.slice(0, 7);
+  const { last } = incrementDatesAround(today);
+  const runMonth = last.slice(0, 7);
+  let boardId: string;
+  let sectionId: string;
+  let postL6: string;
+  let postL8: string;
+  const ids = { a: "", b: "", c: "" };
+  let hr: Actor;
+  let payroll: Actor;
+  let checker: Actor;
+  let approver: Actor;
+  let staffA: Actor;
+  let staffB: Actor;
+  let runId = "";
+
+  async function employee(key: "a" | "b" | "c", opts: { level: string; cell: number; doj: string; postId: string; bank: string | null }) {
+    const b = opts.bank ? seal(boardId, "bank", opts.bank) : null;
+    const e = await tenantDb(boardId).employee.create({
+      data: {
+        employeeCode: `PC${key.toUpperCase()}${Date.now().toString(36).toUpperCase()}`,
+        type: "PERMANENT_NPS",
+        status: "ACTIVE",
+        firstName: "Change",
+        lastName: key.toUpperCase(),
+        gender: "F",
+        dateOfBirth: new Date("1988-02-02T00:00:00Z"),
+        dateOfJoining: new Date(`${opts.doj}T00:00:00Z`),
+        dateOfRetirement: new Date("2048-02-29T00:00:00Z"),
+        sectionId,
+        postId: opts.postId,
+        payLevel: opts.level,
+        payCell: opts.cell,
+        mobile: key === "a" ? "9811100001" : null,
+        bankAccountEnc: b?.enc ?? null,
+        bankAccountHash: b?.hash ?? null,
+        bankAccountLast4: b?.last4 ?? null,
+        ifsc: b ? "SBIN0001234" : null,
+      },
+    });
+    ids[key] = e.id;
+  }
+
+  beforeAll(async () => {
+    boardId = (await makeBoard()).id;
+    await installPack(boardId, ["pay-matrix", "pay-rules", "tax-rules"]);
+    sectionId = (await makeSection(boardId)).id;
+    postL6 = (await makePost(boardId, "6")).id;
+    const postL7 = (await makePost(boardId, "7")).id;
+    postL8 = (await makePost(boardId, "8")).id;
+    // A's increment falls on the last increment date (1 Jan for 2 Jan–1 Jul joiners, else 1 Jul).
+    const dojA = last.endsWith("-01-01") ? "2015-03-10" : "2015-09-10";
+    await employee("a", { level: "6", cell: 3, doj: dojA, postId: postL6, bank: "40001112223334" });
+    await employee("b", { level: "7", cell: 5, doj: "2012-05-05", postId: postL7, bank: "40001112225555" });
+    await employee("c", { level: "6", cell: 2, doj: "2016-01-20", postId: postL6, bank: null });
+    hr = await actorFor((await makeUser(boardId, "HR_ACCOUNTS", ["HR"])).id);
+    payroll = await actorFor((await makeUser(boardId, "HR_ACCOUNTS", ["PAYROLL"])).id);
+    checker = await actorFor((await makeUser(boardId, "HR_ACCOUNTS", ["CHECKER"])).id);
+    approver = await actorFor((await makeUser(boardId, "ADMIN", ["APPROVER"])).id);
+    staffA = await actorFor((await makeUser(boardId, "EMPLOYEE", [], ids.a)).id);
+    staffB = await actorFor((await makeUser(boardId, "EMPLOYEE", [], ids.b)).id);
+
+    // The regular bill of the increment month, paid at the old pay; C (no bank) is withheld.
+    const computed = await computeRun(tenantDb(boardId), "NPS", runMonth, { ignoreAttendance: true });
+    runId = (await tenantDb(boardId).$transaction((tx) => saveRun(tx, payroll, "NPS", runMonth, computed))).id;
+    const noBank = (await getRun(payroll, runId)).exceptions.find((x) => x.employeeId === ids.c && x.code === "NO_BANK")!;
+    await resolveException(payroll, runId, noBank.id, { resolution: "WITHHELD", note: "Bank details awaited" });
+    await tenantDb(boardId).payrollRun.update({ where: { id: runId }, data: { status: "PAID", approvedAt: new Date(), paidAt: new Date() } });
+  });
+
+  it("lists who is due an increment and gives it through a Checker, with a service book entry (PR-06)", async () => {
+    const list = await incrementDueList(hr, last);
+    const a = list.rows.find((r) => r.employeeId === ids.a)!;
+    expect(a).toMatchObject({ status: "ELIGIBLE", level: "6", fromCell: 3, toCell: 4, fromBasic: 37600, toBasic: 38700 });
+    expect(list.rows.some((r) => r.employeeId === ids.b)).toBe(false);
+    await expect(submitIncrements(hr, { dueDate: last, employeeIds: [] })).rejects.toBeTruthy();
+    const task = await submitIncrements(hr, { dueDate: last, employeeIds: [ids.a], orderNumber: "DCB/Inc/1" });
+    expect((await incrementDueList(hr, last)).rows.find((r) => r.employeeId === ids.a)!.status).toBe("WAITING");
+    await decide(checker, task.id, "APPROVE");
+    const e = await tenantDb(boardId).employee.findUniqueOrThrow({ where: { id: ids.a } });
+    expect(e.payCell).toBe(4);
+    expect(await tenantDb(boardId).serviceBookEntry.count({ where: { employeeId: ids.a, event: "INCREMENT", status: "APPROVED" } })).toBe(1);
+    expect((await incrementDueList(hr, last)).rows.find((r) => r.employeeId === ids.a)!.status).toBe("DONE");
+  });
+
+  it("works out the late increment as arrears, due vs drawn, and pays it in a supplementary bill (PR-08)", async () => {
+    const [arrears] = await computeArrears(tenantDb(boardId), [ids.a], runMonth, runMonth);
+    const basic = arrears.months[0].lines.find((l) => l.code === "BASIC")!;
+    expect(basic).toMatchObject({ drawn: 37600, due: 38700, diff: 1100 });
+    const da = arrears.months[0].lines.find((l) => l.code === "DA")!;
+    expect(da.diff).toBe(660);
+    // NPS 10% on the arrears of Basic + DA.
+    expect(arrears.months[0].lines.find((l) => l.code === "NPS")!.diff).toBe(176);
+    expect(arrears.months[0].lines.some((l) => l.code === "GIS")).toBe(false);
+    const preview = await previewArrears(payroll, { payGroup: "NPS", fromMonth: runMonth, toMonth: runMonth, employeeIds: [ids.a] });
+    expect(preview).toHaveLength(1);
+    const bill = await makeSupplementaryBill(payroll, { type: "ARREARS", payGroup: "NPS", fromMonth: runMonth, toMonth: runMonth, reason: "Increment of 1 Jan given late", employeeIds: [ids.a] });
+    expect(bill).toMatchObject({ kind: "SUPPLEMENTARY", seq: 1, status: "DRAFT" });
+    const data = await getRun(payroll, bill.id);
+    expect(data.title).toMatch(/^Supplementary bill 1/);
+    expect(data.people).toHaveLength(1);
+    expect(data.people[0].net).toBe(arrears.net);
+    // Once that bill is paid, the same months show no arrears left.
+    await tenantDb(boardId).payrollRun.update({ where: { id: bill.id }, data: { status: "PAID" } });
+    expect(await computeArrears(tenantDb(boardId), [ids.a], runMonth, runMonth)).toEqual([]);
+  });
+
+  it("pays withheld pay once it is put right, only once (PR-10 → S-42)", async () => {
+    const before = await withheldCandidates(payroll, "NPS");
+    const slip = before.find((s) => s.employeeId === ids.c)!;
+    expect(slip.hasBank).toBe(false);
+    const b = seal(boardId, "bank", "40001112227777");
+    await tenantDb(boardId).employee.update({ where: { id: ids.c }, data: { bankAccountEnc: b.enc, bankAccountHash: b.hash, bankAccountLast4: b.last4, ifsc: "SBIN0001234" } });
+    const bill = await makeSupplementaryBill(payroll, { type: "WITHHELD", payGroup: "NPS", payslipIds: [slip.id] });
+    const data = await getRun(payroll, bill.id);
+    expect(data.people[0]).toMatchObject({ employeeId: ids.c, net: slip.net });
+    expect(data.exceptions).toHaveLength(0);
+    expect((await withheldCandidates(payroll, "NPS")).some((s) => s.id === slip.id)).toBe(false);
+  });
+
+  it("fixes pay on promotion with the rule chosen; a later step waits for its date (PR-07)", async () => {
+    const input = { employeeId: ids.b, kind: "PROMOTION", toPostId: postL8, toLevel: "8", effectiveFrom: today, option: "FROM_NEXT_INCREMENT", orderNumber: "DCB/Promo/7" };
+    const preview = await previewFixation(hr, input);
+    expect(preview.current).toMatchObject({ level: "7", cell: 5, basic: 50500 });
+    expect(preview.fixation.steps.map((s) => [s.cell, s.basic])).toEqual([
+      [3, 50500],
+      [5, 53600],
+    ]);
+    await expect(previewFixation(hr, { ...input, toLevel: "6" })).rejects.toMatchObject({ fields: { toLevel: "payroll.fixation.lowerLevel" } });
+    const task = await submitFixation(hr, input);
+    await decide(checker, task.id, "APPROVE");
+    // A promotion needs an Admin after the Checker (§14 service book).
+    expect(await tenantDb(boardId).payHistory.count({ where: { employeeId: ids.b, reason: "PROMOTION" } })).toBe(0);
+    const second = await tenantDb(boardId).approvalTask.findFirstOrThrow({ where: { kind: "pay.fixation", entityId: ids.b, status: "PENDING" } });
+    expect(second.requiredPermission).toBe("APPROVER");
+    await decide(approver, second.id, "APPROVE");
+    const e = await tenantDb(boardId).employee.findUniqueOrThrow({ where: { id: ids.b } });
+    expect([e.payLevel, e.payCell, e.postId]).toEqual(["8", 3, postL8]);
+    const rows = await tenantDb(boardId).payHistory.findMany({ where: { employeeId: ids.b, reason: "PROMOTION" }, orderBy: { effectiveFrom: "asc" } });
+    expect(rows.map((r) => [r.payCell, r.applied])).toEqual([
+      [3, true],
+      [5, false],
+    ]);
+    expect(await tenantDb(boardId).serviceBookEntry.count({ where: { employeeId: ids.b, event: "PROMOTION", status: "APPROVED" } })).toBe(1);
+  });
+
+  it("recovers a loan through the payroll, records it on approval and takes it back on reopen (PR-09)", async () => {
+    const loan = await sanctionLoan(payroll, { employeeId: ids.a, type: "FESTIVAL", principal: 3000, interestRate: 0, instalments: 3, startMonth: thisMonth, sanctionDate: today, orderNumber: "DCB/Adv/9" });
+    await expect(sanctionLoan(payroll, { employeeId: ids.a, type: "FESTIVAL", principal: 3000, interestRate: 0, instalments: 3, startMonth: shiftMonth(thisMonth, -1), sanctionDate: today, orderNumber: "DCB/Adv/9" })).rejects.toMatchObject({ fields: { startMonth: "payroll.loans.startPast" } });
+    await decide(checker, (await pendingTask(boardId, loan.id)).id, "APPROVE");
+    await decide(approver, (await pendingTask(boardId, loan.id)).id, "APPROVE");
+    expect((await getLoan(payroll, loan.id)).loan.status).toBe("RUNNING");
+    const computed = await computeRun(tenantDb(boardId), "NPS", thisMonth, { ignoreAttendance: true });
+    const slip = computed.slips.find((s) => s.employeeId === ids.a)!;
+    expect(slip.lines.find((l) => l.code === "LOAN")!.amount).toBe(1000);
+    expect((slip.detail as { loans: { loanId: string }[] }).loans[0].loanId).toBe(loan.id);
+    const run = await tenantDb(boardId).$transaction((tx) => saveRun(tx, payroll, "NPS", thisMonth, computed));
+    await tenantDb(boardId).$transaction((tx) => recordLoanRecoveries(tx, run.id));
+    expect((await getLoan(payroll, loan.id)).recoveries.map((r) => r.principal)).toEqual([1000]);
+    await tenantDb(boardId).$transaction((tx) => undoLoanRecoveries(tx, run.id));
+    expect((await getLoan(payroll, loan.id)).recoveries).toEqual([]);
+    // Recovery stops at zero: the third instalment closes the loan.
+    for (const [i, m] of [shiftMonth(thisMonth, -2), shiftMonth(thisMonth, -1), thisMonth].entries()) await tenantDb(boardId).loanRecovery.create({ data: { loanId: loan.id, runId: `fake-${i}`, month: m, principal: 1000, interest: 0 } });
+    await tenantDb(boardId).$transaction((tx) => recordLoanRecoveries(tx, run.id));
+    expect((await tenantDb(boardId).loan.findUniqueOrThrow({ where: { id: loan.id } })).status).toBe("CLOSED");
+  });
+
+  it("shows each person their own payslips once paid and sends the notices once (SL-01 to SL-04)", async () => {
+    const mine = await myPayslips(staffA);
+    expect(mine.map((s) => s.month)).toContain(runMonth);
+    const slipId = mine.find((s) => s.month === runMonth && s.kind === "REGULAR")!.id;
+    await expect(payslipPdf(staffB, slipId, "en")).rejects.toMatchObject({ status: 403 });
+    const { pdf, fileName } = await payslipPdf(staffA, slipId, "hi");
+    expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(fileName).toMatch(/-hi\.pdf$/);
+    const first = await sendPayslipNotices(tenantDb(boardId), runId);
+    expect(first.sent).toBeGreaterThan(0);
+    expect(await tenantDb(boardId).messageLog.count({ where: { template: "payslip", to: maskMobile("9811100001") } })).toBe(1);
+    expect((await sendPayslipNotices(tenantDb(boardId), runId)).sent).toBe(0);
+  });
+
+  it("restates the increments recorded after a back-dated MACP: withdrawn when not yet due, else a cell up in the new level", async () => {
+    async function withJulyIncrement(tag: string) {
+      const e = await tenantDb(boardId).employee.create({
+        data: { employeeCode: `PB${tag}${Date.now().toString(36).toUpperCase()}`, type: "PERMANENT_NPS", status: "ACTIVE", firstName: "Back", lastName: tag, gender: "M", dateOfBirth: new Date("1985-02-02T00:00:00Z"), dateOfJoining: new Date("2014-08-05T00:00:00Z"), dateOfRetirement: new Date("2045-02-28T00:00:00Z"), sectionId, postId: postL6, payLevel: "6", payCell: 4 },
+      });
+      for (const [date, cell] of [["2025-07-01", 3], ["2026-07-01", 4]] as const) {
+        const entry = await tenantDb(boardId).serviceBookEntry.create({ data: { employeeId: e.id, event: "INCREMENT", eventDate: new Date(`${date}T00:00:00Z`), details: `Annual increment to cell ${cell}`, status: "APPROVED", createdById: "test" } });
+        await tenantDb(boardId).payHistory.create({ data: { employeeId: e.id, effectiveFrom: new Date(`${date}T00:00:00Z`), payLevel: "6", payCell: cell, reason: "INCREMENT", serviceEntryId: entry.id, applied: true, createdById: "test" } });
+      }
+      return e.id;
+    }
+    async function macp(employeeId: string, effectiveFrom: string) {
+      const task = await submitFixation(hr, { employeeId, kind: "MACP", toLevel: "7", effectiveFrom, option: "FROM_PROMOTION", orderNumber: "DCB/MACP/3" });
+      await decide(checker, task.id, "APPROVE");
+      await decide(approver, (await pendingTask(boardId, employeeId)).id, "APPROVE");
+      return tenantDb(boardId).payHistory.findMany({ where: { employeeId }, orderBy: { effectiveFrom: "asc" } });
+    }
+
+    // MACP from 15 March 2026 (on cell 3): the 1 July 2026 increment is not due (January is now the month, and under
+    // six months in the level), so it is withdrawn and the record keeps the MACP pay.
+    const d = await withJulyIncrement("D");
+    expect((await macp(d, "2026-03-15")).map((h) => [h.reason, h.payLevel, h.payCell])).toEqual([
+      ["INCREMENT", "6", 3],
+      ["MACP", "7", 1],
+    ]);
+    expect((await tenantDb(boardId).employee.findUniqueOrThrow({ where: { id: d } })).payLevel).toBe("7");
+    const withdrawn = await tenantDb(boardId).serviceBookEntry.findFirstOrThrow({ where: { employeeId: d, event: "INCREMENT", eventDate: new Date("2026-07-01T00:00:00Z") } });
+    expect(withdrawn.status).toBe("REJECTED");
+    expect(withdrawn.details).toContain("withdrawn after the MACP of 15 Mar 2026");
+
+    // MACP from 20 December 2025: July stays the month and six months are complete, so the increment moves up a cell
+    // in the new level.
+    const e = await withJulyIncrement("E");
+    expect((await macp(e, "2025-12-20")).map((h) => [h.reason, h.payLevel, h.payCell])).toEqual([
+      ["INCREMENT", "6", 3],
+      ["MACP", "7", 1],
+      ["INCREMENT", "7", 2],
+    ]);
+    expect(await tenantDb(boardId).employee.findUniqueOrThrow({ where: { id: e } })).toMatchObject({ payLevel: "7", payCell: 2 });
+
+    // A later MACP already on record: the earlier one is refused until that is put right.
+    await expect(previewFixation(hr, { employeeId: e, kind: "MACP", toLevel: "8", effectiveFrom: "2025-10-01", option: "FROM_PROMOTION", orderNumber: "DCB/MACP/4" })).rejects.toMatchObject({ fields: { effectiveFrom: "payroll.fixation.laterFixation" } });
+  });
+});

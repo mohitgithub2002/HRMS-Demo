@@ -1,0 +1,51 @@
+import "server-only";
+import type { ApprovalTask } from "@/generated/prisma/client";
+import type { Permission } from "@/generated/prisma/enums";
+import type { Actor } from "@/core/auth/session";
+import type { Tx } from "@/core/tenancy/scoped";
+
+export interface DecisionContext<P> {
+  tx: Tx;
+  task: ApprovalTask;
+  payload: P;
+  actor: Actor;
+  note: string | null;
+  /** Work to do once the decision is saved (sending SMS or email) — it never runs if the decision rolls back. */
+  afterCommit(fn: () => Promise<void>): void;
+}
+
+/** One kind of item that goes through maker-checker (an employee change, a leave application, a payroll…). */
+export interface ApprovalKind<P = unknown> {
+  kind: string;
+  requiredPermission: Permission;
+  /**
+   * Self-service items (an employee applying for their own leave or asking to change their own mobile)
+   * are allowed to be about the maker. Everything else about the maker's own record is blocked (PRD §2 rule 2).
+   */
+  allowSelfSubject?: boolean;
+  /** Old/new values carry pay, bank or Aadhaar. */
+  sensitive?: boolean;
+  /** Never decided straight after the request in the simple way (the two-step pay bill: a Checker, then an OTP). */
+  noDirect?: boolean;
+  onApprove(ctx: DecisionContext<P>): Promise<void>;
+  onReject?(ctx: DecisionContext<P>): Promise<void>;
+  onReturn?(ctx: DecisionContext<P>): Promise<void>;
+  /** The maker withdrew the item before anyone decided it. */
+  onCancel?(ctx: DecisionContext<P>): Promise<void>;
+}
+
+const kinds = new Map<string, ApprovalKind<never>>();
+
+export function defineApprovalKind<P>(def: ApprovalKind<P>): ApprovalKind<P> {
+  kinds.set(def.kind, def as unknown as ApprovalKind<never>);
+  return def;
+}
+
+export function getApprovalKind(kind: string): ApprovalKind<unknown> | undefined {
+  return kinds.get(kind) as ApprovalKind<unknown> | undefined;
+}
+
+/** Every kind registered so far (the tests check that each belongs to a function — lib/approvals/areas.ts). */
+export function listApprovalKinds(): string[] {
+  return [...kinds.keys()];
+}

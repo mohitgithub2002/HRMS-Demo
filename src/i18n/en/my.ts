@@ -1,0 +1,22 @@
+export const my = {
+  recordTitle: "My record",
+  recordSubtitle: "Your details as the organisation holds them. If anything is wrong, ask for a change.",
+  requestChange: "Request a change",
+  requestsTitle: "My requests",
+  requestsSubtitle: "Changes you asked HR to make, and what happened to them.",
+  newRequest: "New request",
+  kind: {
+    address: "Change of address",
+    mobile: "Change of mobile number",
+    bank: "Change of bank account",
+    nominee: "Change of nominee",
+  },
+  sent: "Request sent to HR.",
+  empty: "You have not asked for any change yet.",
+  bankProof: "Cancelled cheque or passbook page",
+  bankNote: "Salary goes to the new account only after HR and a Checker approve it.",
+  nomineeDetails: "Tell HR what should change",
+  hrApprovedWaitingChecker: "HR approved · waiting for Checker",
+  teamTitle: "My team",
+  teamSubtitle: "Staff of your section: {section}.",
+};

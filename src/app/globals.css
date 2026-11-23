@@ -1,0 +1,249 @@
+@import "tailwindcss";
+
+/*
+ * Kosh design tokens.
+ *
+ * Palette: midnight ink for structure, iris (a deep blue-violet) for action, champagne gold as a sparing accent of
+ * distinction, on a warm ivory canvas. Semantic colours (canvas, surface, line, ink, muted) are CSS variables so the
+ * whole app turns dark by changing one set of values; brand and gold scales are fixed.
+ * Type: Inter for everything you read and type, Fraunces for titles and big figures, Noto Sans Devanagari for Hindi.
+ * One solid primary button per screen; AA contrast in both themes.
+ */
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  --canvas: #f6f4ef;
+  --surface: #ffffff;
+  --surface-2: #fbfaf7;
+  --sunken: #f0ede6;
+  --line: #e6e2d9;
+  --line-strong: #d4cfc3;
+  --ink: #161827;
+  --ink-2: #393c4f;
+  --muted: #646777;
+  --faint: #9497a5;
+  --focus: #5550cf;
+  --night: #0c0f1e;
+  --night-2: #141a33;
+  --night-line: #232945;
+  --night-ink: #e9eaf2;
+  --night-muted: #9da1b8;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --canvas: #0b0d17;
+  --surface: #121524;
+  --surface-2: #161a2b;
+  --sunken: #0e111d;
+  --line: #252a3e;
+  --line-strong: #343a52;
+  --ink: #eceef6;
+  --ink-2: #c9ccdb;
+  --muted: #9ea2b6;
+  --faint: #6e7389;
+  --focus: #8a8dea;
+  --night: #080a13;
+  --night-2: #0f1222;
+  --night-line: #1d2238;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-sunken: var(--sunken);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-night: var(--night);
+  --color-night-2: var(--night-2);
+  --color-night-line: var(--night-line);
+  --color-night-ink: var(--night-ink);
+  --color-night-muted: var(--night-muted);
+}
+
+@theme {
+  --color-brand-50: #f4f4fe;
+  --color-brand-100: #e8e9fc;
+  --color-brand-200: #d3d5f9;
+  --color-brand-300: #b1b4f3;
+  --color-brand-400: #8a8dea;
+  --color-brand-500: #6a6bde;
+  --color-brand-600: #5550cf;
+  --color-brand-700: #4740b4;
+  --color-brand-800: #3b3692;
+  --color-brand-900: #332f74;
+  --color-brand-950: #1f1c45;
+
+  --color-gold-50: #fbf8f1;
+  --color-gold-100: #f5edda;
+  --color-gold-200: #ead8ae;
+  --color-gold-300: #ddbe7c;
+  --color-gold-400: #d1a657;
+  --color-gold-500: #c08e3e;
+  --color-gold-600: #a37233;
+  --color-gold-700: #82572c;
+  --color-gold-800: #6b4729;
+  --color-gold-900: #5a3c26;
+
+  --font-sans: "Inter Variable", "Noto Sans Devanagari", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Fraunces Variable", "Noto Sans Devanagari", ui-serif, Georgia, serif;
+
+  --radius-card: 1rem;
+
+  --shadow-card: 0 1px 0 0 rgb(22 24 39 / 0.03), 0 1px 3px 0 rgb(22 24 39 / 0.05);
+  --shadow-raised: 0 10px 30px -12px rgb(22 24 39 / 0.18), 0 4px 10px -6px rgb(22 24 39 / 0.08);
+  --shadow-overlay: 0 32px 64px -16px rgb(12 15 30 / 0.35);
+  --shadow-glow: 0 0 0 1px rgb(85 80 207 / 0.12), 0 8px 24px -8px rgb(85 80 207 / 0.45);
+
+  --animate-fade-in: fade-in 180ms ease-out;
+  --animate-slide-up: slide-up 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-slide-in-left: slide-in-left 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-shimmer: shimmer 1.6s linear infinite;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slide-in-left {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
+  @keyframes shimmer {
+    from { background-position: -400px 0; }
+    to { background-position: 400px 0; }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01", "ss03";
+  }
+  :lang(hi) body,
+  body:lang(hi) {
+    line-height: 1.6;
+  }
+  ::selection {
+    background: var(--color-brand-200);
+    color: var(--color-brand-950);
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  h1, h2, h3 {
+    letter-spacing: -0.01em;
+  }
+  input, select, textarea, button {
+    font: inherit;
+  }
+}
+
+@layer utilities {
+  /* Ask AI: the assistant's mark in Kosh gold, and text that shimmers while an answer is worked out (decorative). */
+  .ask-mark {
+    background: linear-gradient(135deg, var(--color-gold-300) 0%, var(--color-gold-500) 55%, var(--color-gold-700) 100%);
+    color: var(--night);
+  }
+  .ask-shimmer {
+    background-image: linear-gradient(90deg, var(--muted) 0%, var(--muted) 40%, var(--color-brand-500) 50%, var(--muted) 60%, var(--muted) 100%);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: ask-shimmer 1.8s linear infinite;
+  }
+  @keyframes ask-shimmer {
+    from { background-position: 100% 0; }
+    to { background-position: -100% 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ask-shimmer {
+      animation: none;
+      color: var(--muted);
+      background: none;
+    }
+  }
+
+  .font-display {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    font-variation-settings: "SOFT" 30, "WONK" 0;
+    letter-spacing: -0.015em;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .hairline {
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  /* The quiet grain behind the sign-in and console hero panels. */
+  .bg-aurora {
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgb(85 80 207 / 0.35), transparent 60%),
+      radial-gradient(900px 500px at 110% 10%, rgb(192 142 62 / 0.22), transparent 60%),
+      radial-gradient(800px 600px at 50% 120%, rgb(71 64 180 / 0.35), transparent 60%),
+      var(--night);
+  }
+  .text-gradient-gold {
+    background: linear-gradient(100deg, #f5edda 0%, #ddbe7c 45%, #c08e3e 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .skeleton {
+    background: linear-gradient(90deg, var(--sunken) 0%, var(--surface-2) 50%, var(--sunken) 100%);
+    background-size: 800px 100%;
+    animation: var(--animate-shimmer);
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+}
+
+/* A <Table stack> becomes one card per row on phones (no sideways scrolling). */
+@media (max-width: 639px) {
+  .stack-table { overflow-x: visible; }
+  .stack-table table, .stack-table tbody, .stack-table tr { display: block; }
+  .stack-table thead { display: none; }
+  .stack-table tr { display: flex; flex-direction: column; padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--line); }
+  .stack-table tr:last-child { border-bottom: 0; }
+  .stack-table td { display: block; padding: 0.125rem 0; border: 0; text-align: left; }
+  .stack-table td[data-label] { display: flex; align-items: center; justify-content: space-between; gap: 1rem; text-align: right; }
+  .stack-table td[data-label]::before { content: attr(data-label); font-size: 0.75rem; color: var(--muted); text-align: left; }
+  .stack-table td[data-actions] { padding-top: 0.625rem; }
+  .stack-table td[data-actions] > div { justify-content: flex-start; }
+  .stack-table td:empty { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  body { background: white; }
+  .no-print { display: none !important; }
+}
