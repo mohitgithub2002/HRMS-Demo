@@ -25,3 +25,17 @@ export async function requireWhere(check: (a: Actor) => boolean): Promise<Actor>
   if (!check(actor)) notFound();
   return actor;
 }
+
+/**
+ * For pages: a service's "not found" (another organisation's id, a removed record) or "forbidden" becomes the plain
+ * not-found page instead of the error screen — and tells nobody whether the record exists elsewhere.
+ */
+export async function orNotFound<T>(work: Promise<T>): Promise<T> {
+  try {
+    return await work;
+  } catch (e) {
+    const status = (e as { status?: number }).status;
+    if (status === 404 || status === 403) notFound();
+    throw e;
+  }
+}

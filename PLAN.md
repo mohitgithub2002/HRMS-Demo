@@ -127,7 +127,7 @@ in a browser, rows ticked here.
 | 1 | Core platform: tenancy & RLS, auth, access matrix, audit, outbox, approvals, i18n, design system, shells | [x] |
 | 2 | Platform console: organisations, provisioning with packs, modules, suspend, platform users, usage, audit | [x] |
 | 3 | Organisation setup: guided setup checklist, organisation profile, sections, posts, users & roles, settings; setup guide | [x] |
-| 4 | Employee master: records, IDs, family & nominees, documents, service book, change requests, sanctioned posts, bulk upload | [ ] |
+| 4 | Employee master: records, IDs, family & nominees, documents, service book, change requests, sanctioned posts, bulk upload | [x] |
 | 5 | Attendance & holidays: punch imports, muster, daily status, requests, month lock, today board | [ ] |
 | 6 | Leave: rules, credits, apply & decide, ledger, opening balances | [ ] |
 | 7 | Payroll: rates & rules, pay items, monthly run (pre-checks, stages), pay bill, bank file, payslips | [ ] |
@@ -179,6 +179,22 @@ unit tests for every rule, an isolation test for every new table; checks green.
 - [x] Settings: way of working, attendance times, lock day, weekly off, bank format, SMS/email, document types
 - [x] docs/SETUP-GUIDE.md — the complete first-day-to-first-payroll guide
 
-### Modules 4–13
+### Module 4 — Employee master (§4)
+- [x] EM-01 One record per person, unique Employee ID per organisation (organisation code + running number); types Permanent-OPS, Permanent-NPS, Contract, Daily wage, Re-employed, Deputation
+- [x] EM-02 Job details; date of retirement worked out from the post's age (born on the 1st → previous month end) and recalculated on change
+- [x] EM-03 PAN, Aadhaar (Verhoeff), PRAN/UAN/ESIC, bank + IFSC — encrypted with the organisation's own key, masked, duplicates blocked within the organisation (at entry, at approval and by index)
+- [x] EM-04 Family and nominees per scheme (shares add to 100%)
+- [x] EM-05 Documents (PDF/JPG/PNG, recognised by content, size per document type, SHA-256), stored as the organisation's own files
+- [x] EM-06 e-Service book with orders; appointment / promotion / penalty also go to an Admin in the two-step way
+- [x] EM-07 Changes through a Checker (two steps) or at once (simple); every old value kept in the history
+- [x] EM-08 Employee change requests (address, mobile, bank, nominee); withdraw while waiting
+- [x] EM-09 Sanctioned vs filled posts per section and post
+- [x] EM-10 Bulk upload from the organisation's own Excel template (codes sheet), row-level checks, all-or-nothing, one approval issues IDs
+- [x] Every person on the rolls gets their own Employee login when their ID is issued (Employee ID; mobile + code) — new in Kosh
+- [x] The platform's employee limit is enforced on single and bulk entries — new in Kosh
+- [x] Screens: Employees list (search, filters), profile (Personal · Job & Pay · Bank & IDs · Family · Documents · Service book · History), edit, add (4 steps), bulk upload, sanctioned posts, change requests, scanned service books; My record and My requests for employees
+- [ ] Overview tab, Leave and Payslips tabs on the profile — with Modules 6–7; suspension and leaving service — with Module 8
+
+### Modules 5–13
 Feature lists follow the original's PLAN (EM-, RO-, AT-, LV-, PR-, SL-, ST-, PN- rows) and are copied here, row by
 row, when each module starts, so each is ticked against the same requirement IDs.

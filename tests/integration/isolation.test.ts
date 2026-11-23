@@ -95,4 +95,15 @@ describe.skipIf(!hasDb)("tenant isolation", () => {
     expect(rows.length).toBeGreaterThan(5);
     expect(rows.filter((r) => !r.rls || !r.forced).map((r) => r.table)).toEqual([]);
   });
+
+  it("every reference between two organisation tables has its same-organisation partner key", async () => {
+    const missing = await rawDb().$queryRaw<{ conname: string }[]>(Prisma.sql`
+      SELECT c.conname FROM pg_constraint c
+      JOIN pg_namespace n ON n.oid = (SELECT relnamespace FROM pg_class WHERE oid = c.conrelid)
+      WHERE c.contype = 'f' AND n.nspname = 'public' AND array_length(c.conkey, 1) = 1 AND c.conname NOT LIKE 'kosh_tfk_%'
+        AND EXISTS (SELECT 1 FROM pg_attribute x WHERE x.attrelid = c.conrelid AND x.attname = 'tenantId')
+        AND EXISTS (SELECT 1 FROM pg_attribute x WHERE x.attrelid = c.confrelid AND x.attname = 'tenantId')
+        AND NOT EXISTS (SELECT 1 FROM pg_constraint k WHERE k.conname = left('kosh_tfk_' || c.conname, 63))`);
+    expect(missing.map((m) => m.conname)).toEqual([]);
+  });
 });

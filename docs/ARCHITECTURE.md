@@ -20,7 +20,7 @@ Browser ──cookie kosh_session──▶ getActor()
                                 "tenantId" = current_setting('app.tenant_id')
 ```
 
-## The five walls
+## The walls
 
 1. **Session → tenant.** A sign-in is always for one organisation (organisation code + login ID). The session row
    stores the tenant; nothing in a URL, form or header can change it. The platform console uses other tables
@@ -40,6 +40,13 @@ Browser ──cookie kosh_session──▶ getActor()
    copied into another organisation cannot be decrypted there, and equal PANs hash differently across organisations.
 5. **Files, limits and logs.** Stored files are tenant rows; rate limits are kept per tenant as well as per session;
    each organisation has its own append-only audit trail, and the platform team has another.
+
+6. **Same-organisation references.** PostgreSQL checks foreign keys without row-level security, so a plain key would
+   let organisation A store a row pointing at organisation B's employee. `kosh_tenant_fks()` (run by
+   `kosh_enable_rls()` in every migration) gives every foreign key between two tenant tables a partner key on
+   `("tenantId", column) → ("tenantId", id)`, so a row can only point at a row of its own organisation. These keys
+   are named `kosh_tfk_*` / `kosh_tuniq_*` and live outside `schema.prisma`; `npm run db:new` keeps Prisma from
+   dropping them. A test fails if any foreign key lacks its partner.
 
 `tests/integration/isolation.test.ts` proves walls 2 and 3 separately: reads, finds by id, updates, deletes, upserts,
 counts, moves, transactions and raw SQL — and RLS alone with no filter in the query.

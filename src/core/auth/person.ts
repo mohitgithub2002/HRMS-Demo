@@ -1,9 +1,12 @@
 /**
- * What a login's employee record means for access: section (a reporting officer's scope), whether the person is on
- * the rolls, a pensioner, or has left (PRD §2 rule 6: access ends on leaving). The employee and pension modules
- * fill this in; until a login is linked to an employee it is a plain staff login.
+ * What a login's employee record means for access (§2 rules 5 and 6): the section (a section head's scope), whether
+ * the person is on the rolls or a pensioner, and whether access has ended (retirement, resignation, transfer, death).
+ * Pensions are added by the pension module (registerPensionLookup).
  */
+import type { LoginType, UserStatus } from "@/generated/prisma/enums";
+import { todayIST, toISODate } from "@/core/dates";
 import type { TenantDb } from "@/core/tenancy/scoped";
+import { accessState } from "./access-state";
 
 export interface PersonAccess {
   hasAccess: boolean;
@@ -13,15 +16,30 @@ export interface PersonAccess {
   pensionerId: string | null;
 }
 
-type Resolver = (db: TenantDb, employeeId: string) => Promise<PersonAccess>;
-let resolver: Resolver | null = null;
+type PensionLookup = (db: TenantDb, employeeId: string) => Promise<{ id: string; from: string } | null>;
+let pensionLookup: PensionLookup | null = null;
 
-/** The employee module registers how a record turns into access. */
-export function registerPersonResolver(fn: Resolver) {
-  resolver = fn;
+export function registerPensionLookup(fn: PensionLookup) {
+  pensionLookup = fn;
 }
 
-export async function resolvePerson(db: TenantDb, employeeId: string | null): Promise<PersonAccess> {
-  if (!employeeId || !resolver) return { hasAccess: true, isEmployee: Boolean(employeeId), isPensioner: false, sectionId: null, pensionerId: null };
-  return resolver(db, employeeId);
+export async function resolvePerson(db: TenantDb, user: { employeeId: string | null; status: UserStatus; loginType: LoginType }): Promise<PersonAccess> {
+  if (!user.employeeId) {
+    const s = accessState({ userStatus: user.status, loginType: user.loginType, employee: null, pensionFrom: null }, todayIST());
+    return { hasAccess: s.allowed, isEmployee: false, isPensioner: false, sectionId: null, pensionerId: null };
+  }
+  const [e, pension] = await Promise.all([
+    db.employee.findUnique({ where: { id: user.employeeId }, select: { status: true, exitDate: true, dateOfRetirement: true, sectionId: true } }),
+    pensionLookup ? pensionLookup(db, user.employeeId) : null,
+  ]);
+  const s = accessState(
+    {
+      userStatus: user.status,
+      loginType: user.loginType,
+      employee: e ? { status: e.status, exitDate: e.exitDate ? toISODate(e.exitDate) : null, dateOfRetirement: e.dateOfRetirement ? toISODate(e.dateOfRetirement) : null } : null,
+      pensionFrom: pension?.from ?? null,
+    },
+    todayIST(),
+  );
+  return { hasAccess: s.allowed, isEmployee: s.isEmployee, isPensioner: s.isPensioner, sectionId: s.isEmployee ? (e?.sectionId ?? null) : null, pensionerId: s.isPensioner ? (pension?.id ?? null) : null };
 }

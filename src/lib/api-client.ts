@@ -36,3 +36,12 @@ export async function api<T = unknown>(url: string, opts: { method?: string; bod
   if (json.applied) markApplied();
   return json.data as T;
 }
+
+/** Sends a multipart form (file uploads) with the same errors as api(). */
+export async function apiForm<T = unknown>(url: string, form: FormData, method: "POST" | "PUT" = "POST"): Promise<T> {
+  const res = await fetch(url, { method, body: form });
+  const json = (await res.json().catch(() => null)) as { ok: boolean; data?: T; applied?: boolean; error?: { message: string; code: string; fields?: Record<string, string> } } | null;
+  if (!res.ok || !json?.ok) throw new ApiError(json?.error?.message ?? "Something went wrong. Please try again.", res.status, json?.error?.code ?? "server_error", json?.error?.fields);
+  if (json.applied) markApplied();
+  return json.data as T;
+}

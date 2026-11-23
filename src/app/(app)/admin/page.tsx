@@ -1,4 +1,4 @@
-import { ArrowUpRight, Briefcase, Landmark, Receipt, Settings, ShieldCheck, Sparkles, Users } from "lucide-react";
+import { ArrowUpRight, Briefcase, Landmark, Receipt, Scale, Settings, ShieldCheck, Sparkles, Users } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
@@ -8,7 +8,7 @@ import { getT } from "@/core/i18n/server";
 
 export const metadata = { title: "Administration" };
 
-const ICONS: Partial<Record<MenuIcon, React.ComponentType<{ className?: string }>>> = { sparkles: Sparkles, landmark: Landmark, briefcase: Briefcase, receipt: Receipt, users: Users, settings: Settings, shield: ShieldCheck };
+const ICONS: Partial<Record<MenuIcon, React.ComponentType<{ className?: string }>>> = { sparkles: Sparkles, landmark: Landmark, briefcase: Briefcase, receipt: Receipt, users: Users, settings: Settings, shield: ShieldCheck, scale: Scale };
 
 export default async function AdminPage() {
   const actor = await requireActor();

@@ -21,13 +21,14 @@ export interface SetupStep {
 
 export async function setupStatus(actor: Actor) {
   const db = actor.db;
-  const [profile, settings, savedKeys, sections, posts, staffLogins] = await Promise.all([
+  const [profile, settings, savedKeys, sections, posts, staffLogins, employees] = await Promise.all([
     getTenantProfile(actor.tenantId),
     getSettings(db),
     db.setting.findMany({ select: { key: true } }),
     db.section.count({ where: { isActive: true } }),
     db.post.count({ where: { isActive: true } }),
     db.user.count({ where: { status: "ACTIVE", loginType: "HR_ACCOUNTS" } }),
+    db.employee.count({ where: { status: { in: ["ACTIVE", "SUSPENDED"] } } }),
   ]);
   const saved = new Set(savedKeys.map((s) => s.key));
   const steps: SetupStep[] = [
@@ -38,6 +39,7 @@ export async function setupStatus(actor: Actor) {
     { key: "posts", title: "setup.step.posts.title", hint: "setup.step.posts.hint", href: "/admin/posts", done: posts > 0, figure: String(posts) },
     { key: "users", title: "setup.step.users.title", hint: "setup.step.users.hint", href: "/admin/users", done: staffLogins > 0, figure: String(staffLogins) },
     { key: "attendance", title: "setup.step.attendance.title", hint: "setup.step.attendance.hint", href: "/admin/settings#attendance", done: saved.has("attendance") },
+    { key: "employees", title: "setup.step.employees.title", hint: "setup.step.employees.hint", href: "/employees", done: employees > 0, figure: String(employees) },
     { key: "bank", title: "setup.step.bank.title", hint: "setup.step.bank.hint", href: "/admin/settings#bank", done: Boolean(settings.bank.bankName && settings.bank.ifsc) },
   ];
   const done = steps.filter((s) => s.done).length;

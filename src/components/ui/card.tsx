@@ -30,3 +30,17 @@ export function CardBody({ className, children }: { className?: string; children
 export function CardFooter({ className, children }: { className?: string; children: React.ReactNode }) {
   return <div className={cn("flex flex-wrap items-center justify-end gap-2 rounded-b-[var(--radius-card)] border-t border-line bg-surface-2 px-5 py-3.5 sm:px-6", className)}>{children}</div>;
 }
+
+/** Label / value pairs, e.g. on a profile tab. */
+export function DescriptionList({ items, columns = 2 }: { items: { label: React.ReactNode; value: React.ReactNode }[]; columns?: 1 | 2 | 3 }) {
+  return (
+    <dl className={cn("grid gap-x-8 gap-y-5", columns === 3 ? "sm:grid-cols-3" : columns === 2 ? "sm:grid-cols-2" : "")}>
+      {items.map((item, i) => (
+        <div key={i} className="min-w-0">
+          <dt className="text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-muted">{item.label}</dt>
+          <dd className="mt-1 break-words text-[0.9375rem] text-ink">{item.value ?? "—"}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}

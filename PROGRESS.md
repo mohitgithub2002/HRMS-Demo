@@ -10,7 +10,7 @@ What has changed, what was verified, what is pending. The module checklist is in
 | 1 | Core platform (tenancy & RLS, auth, access, approvals, audit, i18n, design system, shells) | 🟢 Done & verified |
 | 2 | Platform console | 🟢 Done & verified |
 | 3 | Organisation setup (checklist, profile, sections, posts, users & roles, settings, audit) + setup guide | 🟢 Done & verified |
-| 4 | Employee master | ⚪ Next |
+| 4 | Employee master | 🟢 Done & verified (overview, leave and payslip tabs come with their modules) |
 | 5–13 | Attendance, leave, payroll, pay changes & loans, statutory, pension, recruitment, reports, Ask | ⚪ Pending |
 
 🟢 Done & verified · 🟡 In progress · ⚪ Pending
@@ -32,6 +32,23 @@ What has changed, what was verified, what is pending. The module checklist is in
 | Same dependency versions as the original | Known to work together (Next 16.4.2, Prisma 7.10.1, React 19.2) |
 
 ## Change log (newest first)
+
+### 2026-11-23 — Module 4: employee master ✅
+- Ported from the original and adapted to tenancy: records with encrypted identity numbers (per-organisation keys),
+  family and nominees, documents (organisation-owned files), e-service book, change history, employee change
+  requests, sanctioned posts, Excel bulk upload, scanned service books, the approval detail page.
+- **New in Kosh:** every person gets their own Employee login when their ID is issued; Employee IDs are the
+  organisation code + a running number; the platform's employee limit is enforced; office logins (not employees)
+  count against the user limit; document types are a setting with defaults.
+- **Isolation found and fixed:** a foreign key let organisation A store a family row pointing at B's employee (PostgreSQL
+  checks foreign keys without RLS). `kosh_tenant_fks()` now gives every reference between tenant tables a
+  same-organisation partner key, in every migration; a test fails if one is missing. Nothing of B was ever readable
+  through it.
+- Carried-over unit tests now run here too: validators, dates, money, pay matrix, access matrix (§14 cell by cell),
+  access-state — 163 tests in total.
+- Verified in a browser: list (25 demo staff), profile tabs, add employee in 4 steps (ID + login issued at once in the
+  simple way), employee's own record and requests on a phone (nothing scrolls sideways), Excel template, an employee
+  cannot open the list, another organisation's HR gets "not found" for a DEMO record id.
 
 ### 2026-11-22 — Module 3: organisation setup and the setup guide ✅
 - **Administration** page with the Admin's tools; **Setup** checklist (8 steps, each worked out from data, progress ring

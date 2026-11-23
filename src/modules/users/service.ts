@@ -58,8 +58,9 @@ export async function createUser(actor: Actor, input: z.infer<typeof userSchema>
   const password = temporaryPassword();
   const passwordHash = await hashPassword(password);
   const user = await actor.db.$transaction(async (tx) => {
-    const active = await tx.user.count({ where: { status: "ACTIVE" } });
-    if (active >= limits.maxUsers) throw new AppError(409, "limit", "errors.limitReached", { limit: limits.maxUsers, what: "users" });
+    // Office logins count against the limit; employees' own logins follow the employee limit instead.
+    const active = await tx.user.count({ where: { status: "ACTIVE", loginType: { not: "EMPLOYEE" } } });
+    if (access.loginType !== "EMPLOYEE" && active >= limits.maxUsers) throw new AppError(409, "limit", "errors.limitReached", { limit: limits.maxUsers, what: "users" });
     if (await tx.user.findFirst({ where: { loginId: input.loginId } })) throw conflict("errors.duplicateCode", undefined, { loginId: "errors.duplicateCode" });
     const u = await tx.user.create({
       data: { loginId: input.loginId, name: input.name, mobile: input.mobile, email: input.email, loginType: access.loginType, permissions: access.permissions, passwordHash, mustChangePassword: true } as Prisma.UserUncheckedCreateInput,

@@ -11,6 +11,7 @@ import { disconnectRaw, rawDb } from "@/core/tenancy/raw";
 import { tenantDb } from "@/core/tenancy/scoped";
 import { provisionTenant } from "@/platform/provision";
 import { DEMO_PASSWORD, DEMO_TENANTS } from "./seed-demo";
+import { DEMO_STAFF, SMC_STAFF, seedEmployees } from "./seed-employees";
 
 async function seedOwner() {
   const email = (process.env.PLATFORM_OWNER_EMAIL ?? "owner@kosh.local").toLowerCase();
@@ -43,7 +44,9 @@ async function main() {
   if (process.env.APP_ENV === "production") return;
   for (const demo of DEMO_TENANTS) {
     const { tenant, created } = await seedTenant(demo, owner.id);
-    console.log(`${created ? "Created" : "Kept"} ${tenant.name} (${tenant.code})`);
+    const staff = demo.code === "DEMO" ? DEMO_STAFF : SMC_STAFF;
+    const people = await seedEmployees(tenantDb(tenant.id), tenant.id, tenant.code, staff, demo.code === "DEMO" ? 1 : 2, DEMO_PASSWORD);
+    console.log(`${created ? "Created" : "Kept"} ${tenant.name} (${tenant.code})${people ? ` with ${people} employees` : ""}`);
   }
   console.log(`Demo password for every demo login: ${DEMO_PASSWORD}`);
 }

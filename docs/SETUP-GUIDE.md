@@ -294,7 +294,7 @@ on Home five days before each.
 
 ## Part E — People
 
-🔜 Arrives with Module 4 (Employee master) · **Employees**
+✅ Available now · **Employees**
 
 ### E1. Before you start — gather for each person
 
@@ -325,8 +325,20 @@ running loans with instalments paid, tax already deducted this financial year. E
 
 ### E5. Employee logins
 
-Approving a record creates the person's Employee login (their Employee ID; mobile + code, or a one-time password).
-Give section heads the **Section head** role.
+The moment a person's Employee ID is issued, Kosh creates their own Employee login: the login ID is the Employee ID
+and there is no password — they sign in from their phone with **mobile + one-time code** (keep *mobile + code alone*
+on under Settings → Sign-in). If someone prefers a password, open Users & roles → *Reset password* to give them a
+one-time password. To make someone a **Section head**, open their login in Users & roles and choose the *Section
+head* role; they then see and decide for their own section only (moving them to another section moves their access).
+
+### E6. Sanctioned posts, change requests and scanned service books
+
+- **Employees → Sanctioned posts**: the sanctioned strength per section and post against filled posts. Change it with
+  the sanction order number; recruitment (Module 11) can only open vacancies against vacant sanctioned posts.
+- **Employees → Change requests**: what employees asked to change (address, mobile, bank, nominee). Bank changes need a
+  proof document.
+- **Employees → Scanned service books**: upload many PDFs at once; each file name starts with the Employee ID
+  (`DEMO00009.pdf`, `DEMO00009 part 2.pdf`) and lands on that person's record.
 
 ---
 

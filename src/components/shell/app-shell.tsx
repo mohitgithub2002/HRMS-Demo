@@ -2,6 +2,14 @@
 
 import {
   BarChart3,
+  Fingerprint,
+  HeartPulse,
+  IdCard,
+  LayoutGrid,
+  Leaf,
+  Scale,
+  Send,
+  UsersRound,
   Briefcase,
   CalendarDays,
   Home,
@@ -44,6 +52,14 @@ const ICONS: Record<IconName, React.ComponentType<{ className?: string }>> = {
   sparkles: Sparkles,
   user: UserRound,
   shield: ShieldCheck,
+  idcard: IdCard,
+  send: Send,
+  team: UsersRound,
+  fingerprint: Fingerprint,
+  leaf: Leaf,
+  heart: HeartPulse,
+  grid: LayoutGrid,
+  scale: Scale,
 };
 
 export interface ShellProps {

@@ -5,6 +5,7 @@ set -euo pipefail
 name="${1:?usage: npm run db:new -- <name>}"
 dir="prisma/migrations/$(date -u +%Y%m%d%H%M%S)_${name}"
 mkdir -p "$dir"
-npx prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --script > "$dir/migration.sql"
+# The same-organisation keys and indexes (kosh_tfk_*, kosh_tuniq_*) live outside schema.prisma; never let Prisma drop them.
+npx prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --script | grep -v '"kosh_t' > "$dir/migration.sql"
 printf '\n-- Every table with tenantId: row-level security (docs/ARCHITECTURE.md).\nSELECT kosh_enable_rls();\n' >> "$dir/migration.sql"
 echo "Wrote $dir/migration.sql — review it, then: npm run db:deploy"

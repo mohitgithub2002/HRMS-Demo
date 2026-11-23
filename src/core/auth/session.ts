@@ -146,8 +146,8 @@ export const getActor = cache(async (): Promise<Actor | null> => {
     db.setting.findFirst({ where: { key: "workflow" } }),
   ]);
   if (!tenant || !usableTenant(tenant.status) || !user || user.status !== "ACTIVE") return null;
-  const person = await resolvePerson(db, user.employeeId);
-  if (!person.hasAccess && user.loginType === "EMPLOYEE") return null;
+  const person = await resolvePerson(db, user);
+  if (!person.hasAccess) return null;
   if (now - s.lastSeenAt.getTime() > TOUCH_INTERVAL_MS) {
     const touch = () => rawDb().session.update({ where: { id: s.id }, data: { lastSeenAt: new Date() } }).then(() => undefined, () => undefined);
     try {

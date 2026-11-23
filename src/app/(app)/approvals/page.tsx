@@ -1,4 +1,6 @@
 import { Inbox } from "lucide-react";
+import Link from "next/link";
+import type { ApprovalDetails } from "@/core/approvals/details";
 import { Badge, type Tone } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -38,14 +40,16 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       ) : (
         <ul className="space-y-3">
           {tasks.map((task) => {
-            const details = Array.isArray(task.details) ? (task.details as { label: string; old?: string; new?: string }[]) : [];
+            const details = ((task.details ?? {}) as ApprovalDetails).rows ?? [];
             const mayDecide = tab === "waiting" && decisionBlocker(actor, task) === null;
             return (
               <li key={task.id}>
                 <Card className="p-5 sm:p-6">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-medium text-ink">{(locale === "hi" && task.titleHi) || task.title}</p>
+                      <Link href={`/approvals/${task.id}`} className="font-medium text-ink hover:text-brand-700 hover:underline dark:hover:text-brand-300">
+                        {(locale === "hi" && task.titleHi) || task.title}
+                      </Link>
                       <p className="mt-1 text-xs text-muted">
                         {t("approvals.from", { name: task.makerName })} · {formatDateTime(task.createdAt, locale)}
                       </p>
@@ -56,11 +60,11 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
                   </div>
                   {details.length > 0 && (
                     <dl className="mt-4 grid gap-x-6 gap-y-2 rounded-xl bg-surface-2 p-4 text-sm ring-1 ring-line sm:grid-cols-2">
-                      {details.map((d, i) => (
+                      {details.slice(0, 8).map((d, i) => (
                         <div key={i} className="flex justify-between gap-3">
-                          <dt className="text-muted">{d.label}</dt>
+                          <dt className="text-muted">{(locale === "hi" && d.labelHi) || d.label}</dt>
                           <dd className="text-right text-ink">
-                            {d.old !== undefined && <span className="mr-2 text-faint line-through">{d.old}</span>}
+                            {d.old !== undefined && d.old !== null && <span className="mr-2 text-faint line-through">{d.old}</span>}
                             {d.new}
                           </dd>
                         </div>
