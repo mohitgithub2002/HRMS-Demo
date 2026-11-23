@@ -360,6 +360,20 @@ on under Settings → Sign-in). If someone prefers a password, open Users & role
 one-time password. To make someone a **Section head**, open their login in Users & roles and choose the *Section
 head* role; they then see and decide for their own section only (moving them to another section moves their access).
 
+### E6a. Hiring new people — *Hiring* (✅ available)
+
+1. **Sanctioned posts first** (*Employees → Sanctioned posts*): a vacancy can only be raised against a vacant
+   sanctioned seat.
+2. **Vacancy**: section, post, seats and the reservation break-up (must add up to the seats); an Admin approves it,
+   then record the advertisement number, date and last date. Reference numbers are `<your code>/REC/<year>/<n>`.
+3. **Applicants** one by one or from the Excel template; move each through Eligible → Shortlisted → Selected.
+4. **Selection list** (no more than the seats) → an Admin approves → **appointment letter** in Hindi and English,
+   signed by the authority named in *Settings → Tax and statutory details*.
+5. **Joining checklist** (documents, medical, police verification, oath, bank, PAN) → a Checker approves → the
+   Employee ID is issued, initial pay fixed at cell 1, the service book opened, the Employee login made and a welcome
+   SMS sent. Contract and daily-wage staff can join without a vacancy.
+6. **Registration files**: PRAN for NPS joiners and EPF / ESIC for contract staff, released like every other file.
+
 ### E6. Sanctioned posts, change requests and scanned service books
 
 - **Employees → Sanctioned posts**: the sanctioned strength per section and post against filled posts. Change it with

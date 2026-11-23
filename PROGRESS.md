@@ -17,7 +17,8 @@ What has changed, what was verified, what is pending. The module checklist is in
 | 8 | Pay changes, arrears, loans; suspensions, leaving service & settlement | 🟢 Done & verified |
 | 9 | Statutory & tax (TDS, declarations, 24Q, Form 16, GPF, NPS, EPF, ESIC, calendar) | 🟢 Done & verified |
 | 10 | Pension (pensioners, bills, life certificates, cases & PPO) | 🟢 Done & verified |
-| 11–13 | Recruitment, reports, Ask | ⚪ Pending (Recruitment next) |
+| 11 | Recruitment & onboarding | 🟢 Done & verified |
+| 12–13 | Reports & dashboards, Ask | ⚪ Pending (Reports next) |
 
 🟢 Done & verified · 🟡 In progress · ⚪ Pending
 
@@ -41,6 +42,17 @@ What has changed, what was verified, what is pending. The module checklist is in
 | Generated files are StoredFiles + a FileRecord register (`core/files`) | Same organisation wall as every upload; maker-checker release before download |
 
 ## Change log (newest first)
+
+### 2026-11-23 — Module 11: recruitment and onboarding ✅
+- Ported with its screens and wording: vacancies only against vacant sanctioned seats, applicants (one by one or
+  Excel), selection, bilingual appointment letter, joining checklist, Employee ID and initial pay, probation tracker,
+  PRAN and EPF / ESIC registration files, contract and daily-wage joining without a vacancy.
+- **New in Kosh:** references are `<organisation code>/REC/<year>/<n>`; the letter carries the organisation's name,
+  its service rules and the signing authority from Settings; joining uses the same Employee-login helper as every
+  new employee (welcome SMS once the approval is saved). Demo: an advertised LDC vacancy with four applicants.
+- Fixed for every screen: card header buttons could push a page wider than a phone; they now wrap.
+- Tests: the original's recruitment flow test (vacancy → applicants → selection → letter → joining → ID → login) —
+  333 tests in total, all passing. Verified in a browser as HR on a laptop and a phone.
 
 ### 2026-11-23 — Modules 7–10: payroll, pay changes and loans, statutory and tax, pension ✅
 - Ported from the original and re-verified (≈12,000 lines of services, 170 screens and API routes, 27 tables): pay

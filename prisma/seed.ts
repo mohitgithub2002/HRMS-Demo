@@ -14,7 +14,8 @@ import { DEMO_PASSWORD, DEMO_TENANTS } from "./seed-demo";
 import { DEMO_STAFF, SMC_STAFF, seedEmployees } from "./seed-employees";
 import { DEMO_DEVICE, seedAttendance } from "./seed-attendance";
 import { syncDevices } from "@/core/tenancy/devices";
-import { shiftMonth, todayIST } from "@/core/dates";
+import { fromISODate, shiftMonth, todayIST } from "@/core/dates";
+import { nextNumber } from "@/core/sequence";
 import { seal } from "@/core/crypto";
 import { seedDemoLeaver, seedPayrollDemo } from "./seed-payroll";
 import { seedPensionDemo } from "./seed-pension";
@@ -90,6 +91,50 @@ async function seedDemoPay(tenantId: string) {
   await seedDemoLeaver(db);
 }
 
+/** A demo vacancy (advertised, with applicants) so the hiring screens have something to show. */
+async function seedDemoHiring(tenantId: string, orgCode: string) {
+  const db = tenantDb(tenantId);
+  if ((await db.vacancy.count()) > 0) return;
+  const rev = await db.section.findFirst({ where: { code: "REV" } });
+  const ldc = await db.post.findFirst({ where: { code: "LDC" } });
+  if (!rev || !ldc) return;
+  const existing = await db.sanctionedPost.findFirst({ where: { sectionId: rev.id, postId: ldc.id } });
+  if (existing) await db.sanctionedPost.update({ where: { id: existing.id }, data: { sanctioned: 4 } });
+  else await db.sanctionedPost.create({ data: { sectionId: rev.id, postId: ldc.id, sanctioned: 4, orderRef: "Sanction order 2019 (demo)" } as Prisma.SanctionedPostUncheckedCreateInput });
+  const year = todayIST().slice(0, 4);
+  const vacancy = await db.vacancy.create({
+    data: {
+      referenceNo: `${orgCode}/REC/${year}/001`,
+      sectionId: rev.id,
+      postId: ldc.id,
+      payLevel: "2",
+      seats: 2,
+      reservation: { GEN: 1, OBC: 1, SC: 0, ST: 0, EWS: 0 },
+      advertNumber: `${orgCode}/ADV/07/${year}`,
+      advertDate: fromISODate(`${year}-08-14`),
+      lastDate: fromISODate(`${year}-09-15`),
+      status: "ADVERTISED",
+      createdById: "seed",
+    } as Prisma.VacancyUncheckedCreateInput,
+  });
+  const applicants: [string, string, string, string, string, string][] = [
+    ["Kiran Bala", "किरण बाला", "F", "1998-06-14", "OBC", "9811200001"],
+    ["Rohit Saxena", "रोहित सक्सेना", "M", "1997-03-02", "GEN", "9811200002"],
+    ["Anjali Meena", "अंजलि मीणा", "F", "1999-11-23", "ST", "9811200003"],
+    ["Farhan Ali", "फ़रहान अली", "M", "1996-01-30", "GEN", "9811200004"],
+  ];
+  for (const [i, [name, nameHi, gender, dob, category, mobile]] of applicants.entries()) {
+    await db.applicant.create({
+      data: { vacancyId: vacancy.id, applicationNo: `A-${String(i + 1).padStart(4, "0")}`, name, nameHi, gender, dateOfBirth: fromISODate(dob), category, mobile, qualification: "Graduate, typing 35 wpm", status: i < 3 ? "SHORTLISTED" : "APPLIED" } as Prisma.ApplicantUncheckedCreateInput,
+    });
+  }
+  // The running numbers carry on after the demo rows.
+  await db.$transaction(async (tx) => {
+    await nextNumber(tx, `vacancy-${year}`);
+    for (let i = 0; i < applicants.length; i++) await nextNumber(tx, `applicant-${vacancy.id}`);
+  });
+}
+
 /** Punches, a locked month, requests and leave for the DEMO organisation, from the original demo data. */
 async function seedDemoAttendance(tenantId: string) {
   const db = tenantDb(tenantId);
@@ -127,6 +172,7 @@ async function main() {
     if (demo.code === "DEMO") {
       await seedDemoAttendance(tenant.id);
       await seedDemoPay(tenant.id);
+      await seedDemoHiring(tenant.id, tenant.code);
     }
     console.log(`${created ? "Created" : "Kept"} ${tenant.name} (${tenant.code})${people ? ` with ${people} employees` : ""}`);
   }

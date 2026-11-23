@@ -100,11 +100,9 @@ describe.skipIf(!hasTestDb)("the simple way of working (Settings → How work is
 
   it("knows whose desk every kind of approval belongs to", () => {
     const kinds = listApprovalKinds();
-    // Hiring (vacancy, selection, joining) registers its kinds when the recruitment module lands.
-    const notYet = new Set(["vacancy.approve", "selection.approve", "joining.complete"]);
-    expect(kinds.length).toBeGreaterThan(35);
+    expect(kinds.length).toBeGreaterThan(38);
     for (const kind of kinds) expect(kind === FILE_RELEASE || kind in KIND_FN, kind).toBe(true);
-    for (const kind of Object.keys(KIND_FN).filter((k) => !notYet.has(k))) expect(kinds, kind).toContain(kind);
+    for (const kind of Object.keys(KIND_FN)) expect(kinds, kind).toContain(kind);
   });
 
   it("what the HR manager enters counts at once — a promotion passes both of its steps", async () => {

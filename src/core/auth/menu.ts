@@ -31,7 +31,7 @@ interface Def extends MenuItem {
 /** Screens that exist in this build (see the file comment). */
 export const BUILT = new Set<string>([
   "/", "/approvals", "/admin", "/profile", "/employees", "/my/record", "/my/requests", "/attendance", "/leave", "/my/attendance", "/my/team",
-  "/payroll", "/statutory", "/pension", "/my/payslips", "/my/pension-slips", "/my/life-certificate",
+  "/payroll", "/statutory", "/pension", "/my/payslips", "/my/pension-slips", "/my/life-certificate", "/recruitment",
 ]);
 
 const always: Rule = () => true;

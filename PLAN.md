@@ -134,7 +134,7 @@ in a browser, rows ticked here.
 | 8 | Pay changes, arrears, loans & advances | [x] |
 | 9 | Statutory & tax: GPF, NPS, EPF, ESIC, TDS projection, declarations, 24Q, Form 16, calendar | [x] |
 | 10 | Pension: pensioners, pension bill, life certificates, cases & PPO | [x] |
-| 11 | Recruitment & onboarding | [ ] |
+| 11 | Recruitment & onboarding | [x] |
 | 12 | Reports & dashboards | [ ] |
 | 13 | Ask AI (per organisation, within each login's rights) | [ ] |
 
@@ -298,6 +298,20 @@ unit tests for every rule, an isolation test for every new table; checks green.
 - [x] A family pensioner's own login (no employee record) signs in to the pension view
 - [ ] Employee profile Overview, Payslips and Leave tabs (C1, C1b) — with Module 12 (reports), which shares their summaries
 
-### Modules 11–13
+### Module 11 — Recruitment & onboarding (§5)
+- [x] RO-01 Vacancy only against a vacant sanctioned post (seats ≤ sanctioned − filled − open vacancies − joinings in progress); Admin approves before advertising
+- [x] RO-02 Vacancy: post, level, seats, reservation break-up (must add up to the seats), advert no. & date, last date; reference `<organisation code>/REC/YYYY/NNN`
+- [x] RO-03 Applicants one by one or Excel import (template, row-level errors); Applied → Eligible → Shortlisted → Selected → Waitlisted → Rejected; marks and merit rank recorded (exam is outside the system)
+- [x] RO-04 Selection list (≤ seats, General-category selections ≤ unreserved seats) approved by Admin; appointment letter from template, Hindi page + English page, numbered `<ref>/APT/NN`, print audited
+- [x] RO-05 Joining checklist: documents, medical, police verification, oath, bank, PAN, Aadhaar consent — each ticked by name and date, with an optional attached document
+- [x] RO-06 "Complete joining" issues the Employee ID and fixes initial pay (level, cell 1) — _the pro-rata salary from the date of joining is worked out by the payroll run (Module 7), which reads the DOJ_
+- [x] RO-07 NPS (PRAN) registration data file for NPS joiners without a PRAN; EPF/ESIC registration file for contract / daily-wage joiners without UAN/ESIC — both through the file registry (preview → Admin approves → checksum → download)
+- [x] RO-08 Probation tracker (2 years − 1 day for direct recruits), alert 30 days before end on Home and in the list; confirmation recorded into the service book through the Checker
+- [x] RO-09 Contract / daily-wage onboarding without vacancy (agency, wage rate and basis, contract dates)
+- [x] Flow: Checker verifies documents & initial pay → Employee ID issued → APPOINTMENT entry in the service book → Employee login created → welcome SMS
+- [x] S-20 Vacancies · S-21 Applicants & selection · S-22 Joining (+ Probation and Registration files tabs); applicant and list tables become cards on a phone
+- [x] Kosh: the joining approval uses the shared Employee-login helper (same as every new employee); the appointment letter carries the organisation's name, service rules and the signing authority from Settings
+
+### Modules 12–13
 Feature lists follow the original's PLAN (RO-, reports, Ask rows) and are copied here, row by row, when each module
 starts, so each is ticked against the same requirement IDs.
