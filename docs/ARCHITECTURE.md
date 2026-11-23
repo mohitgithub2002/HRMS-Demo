@@ -51,6 +51,20 @@ Browser ──cookie kosh_session──▶ getActor()
 `tests/integration/isolation.test.ts` proves walls 2 and 3 separately: reads, finds by id, updates, deletes, upserts,
 counts, moves, transactions and raw SQL — and RLS alone with no filter in the query.
 
+## Ask AI and the walls
+
+Ask lets a language model write SQL, so it gets walls of its own on top of the ones above:
+
+1. **The guard** (`modules/ask/sql-guard.ts`): PostgreSQL's own parser; one SELECT, only the views listed for the person,
+   only allowlisted functions (no `set_config`, no writes, no system catalogues).
+2. **The role** `kosh_ask`: no login, no superuser, no RLS bypass; it can read the views of the `ask` schema and nothing
+   else. The statement runs inside `ask.run()`, which executes as `kosh_ask` and inside which PostgreSQL refuses any
+   change of role.
+3. **The views** filter every row from a 30-second pass (`AskGrant`): who is asking and how far each area reaches.
+4. **The organisation**: the statement's transaction sets `app.tenant_id`, so row-level security filters every table
+   the views read to that organisation, and the pass itself must belong to that organisation. A pass token of another
+   organisation opens nothing (tested in `tests/integration/ask.test.ts`).
+
 ## Cost of the walls
 
 Each top-level query of a tenant client runs as `BEGIN; set_config; query; COMMIT` (one pooled connection, four

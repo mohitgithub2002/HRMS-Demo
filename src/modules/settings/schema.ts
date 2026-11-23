@@ -184,8 +184,22 @@ export const SETTINGS = {
         .refine((types) => types.some((x) => x.code === "OTHER" && x.active), "settings.docOtherNeeded"),
     })
     .default({ types: DEFAULT_DOCUMENT_TYPES }),
-  /** Ask AI: off, office staff, or everyone. */
-  ask: z.object({ audience: z.enum(["off", "staff", "everyone"]) }).default({ audience: "off" }),
+  /**
+   * Ask AI: who may ask questions in plain words (off, office staff, or everyone), which AI service answers and the
+   * model asked at each. Answers come only from what the person may already see. The API key is not a setting: it is
+   * kept apart, encrypted with the organisation's key (modules/ask/config.ts).
+   */
+  ask: z
+    .object({
+      audience: z.enum(["off", "staff", "everyone"]),
+      provider: z.enum(["gemini", "openai", "claude"]),
+      models: z.object({
+        gemini: z.string().trim().min(1, "validation.required").max(80).regex(/^[A-Za-z0-9._:\/-]+$/, "validation.invalid"),
+        openai: z.string().trim().min(1, "validation.required").max(80).regex(/^[A-Za-z0-9._:\/-]+$/, "validation.invalid"),
+        claude: z.string().trim().min(1, "validation.required").max(80).regex(/^[A-Za-z0-9._:\/-]+$/, "validation.invalid"),
+      }),
+    })
+    .default({ audience: "off", provider: "gemini", models: { gemini: "gemini-3.8-flash", openai: "gpt-5.5", claude: "claude-opus-5-5" } }),
 } as const;
 
 export type SettingKey = keyof typeof SETTINGS;

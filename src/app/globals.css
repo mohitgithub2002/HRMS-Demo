@@ -159,6 +159,31 @@
 }
 
 @layer utilities {
+  /* Ask AI: the assistant's mark in Kosh gold, and text that shimmers while an answer is worked out (decorative). */
+  .ask-mark {
+    background: linear-gradient(135deg, var(--color-gold-300) 0%, var(--color-gold-500) 55%, var(--color-gold-700) 100%);
+    color: var(--night);
+  }
+  .ask-shimmer {
+    background-image: linear-gradient(90deg, var(--muted) 0%, var(--muted) 40%, var(--color-brand-500) 50%, var(--muted) 60%, var(--muted) 100%);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: ask-shimmer 1.8s linear infinite;
+  }
+  @keyframes ask-shimmer {
+    from { background-position: 100% 0; }
+    to { background-position: -100% 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ask-shimmer {
+      animation: none;
+      color: var(--muted);
+      background: none;
+    }
+  }
+
   .font-display {
     font-family: var(--font-display);
     font-optical-sizing: auto;

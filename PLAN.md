@@ -136,7 +136,7 @@ in a browser, rows ticked here.
 | 10 | Pension: pensioners, pension bill, life certificates, cases & PPO | [x] |
 | 11 | Recruitment & onboarding | [x] |
 | 12 | Reports & dashboards | [x] |
-| 13 | Ask AI (per organisation, within each login's rights) | [ ] |
+| 13 | Ask AI (per organisation, within each login's rights) | [x] |
 
 **Definition of done for each module:** data model + migration with RLS; services with permission checks and
 tenant context; REST API; screens in English and Hindi that work on a phone; audit + outbox on every write;
@@ -320,7 +320,20 @@ unit tests for every rule, an isolation test for every new table; checks green.
 - [ ] Migration console for the original client's FoxPro data — not carried over: each new organisation loads its people with the Excel bulk upload, opening leave balances and GPF openings instead
 - [ ] Full data export per organisation (CSV / JSON) — with the platform console's organisation page
 
-### Module 13
-Feature list follows the original's PLAN (Ask rows) and is copied here when the module starts.
+### Module 13 — Ask AI (questions in plain words)
+_Goal: a person asks in their own words and gets an answer from the records and the organisation's documents — and only ever what their login may already see._
+- [x] A1 Ask screen for every login (a button above the menu, and in the top bar on a phone): suggested questions by role, the answer as it is written, the rows behind a list (CSV), "How this was worked out" with each look-up and its query; English and Hindi; phone layout
+- [x] A2 Answers from the records by SQL the model writes — over 52 views of a separate schema, never the tables
+- [x] A3 Access: each login's reach per area from the §14 matrix (whole organisation / own section / own record / nothing), in both ways of working; the User & settings manager never gets people or pay; identity and account numbers are in no view
+- [x] A4 Three walls: the guard (PostgreSQL's own parser, allowlists), a read-only database role that can read only the views, views that filter their rows from a short-lived pass — the last two hold even if the first were wrong (tested)
+- [x] A5 The organisation's documents (policies, orders, circulars) as text with an audience each — everyone, office staff, Admin; written by the Admin (and the HR manager in the simple way); audited
+- [x] A6 Settings → Ask: off / office staff / everyone; every question in the audit trail with its statements (not the rows); 30 questions per person in 10 minutes
+- [x] A7 The AI service is each organisation's choice in Settings → Ask: **Gemini (the default)**, GPT or Claude, each with its model name and its own API key — saved encrypted, never shown again, or taken from the server's environment; a Test button says whether the key and model work
+- [~] A7a Each service's adapter is tested through its official SDK against a local stand-in for the service — _a run with a real key is still to do (none was available while building): Settings → Ask → Test, then the suggested questions_
+- [ ] A8 Each organisation decides whether records may be sent to an AI service outside its servers (its own policy) before Ask is switched on in production
+- [x] Kosh: a fourth wall — each statement's transaction sets the organisation for row-level security on every table the views read, and the pass must belong to that same organisation; tested: an Admin with full reach sees nothing of another organisation, even with that organisation's live pass token
+- [x] Kosh: Ask is a platform add-on module (switched on per organisation in the console) and starts "off" in Settings until the organisation has chosen its service and key; keys are encrypted with the organisation's own key
+- [x] Kosh: one read-only role for the installation (`kosh_ask`), created by the migration or once by an administrator (`scripts/ask-role.sql`)
+
 Feature lists follow the original's PLAN (RO-, reports, Ask rows) and are copied here, row by row, when each module
 starts, so each is ticked against the same requirement IDs.

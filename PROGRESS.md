@@ -19,7 +19,7 @@ What has changed, what was verified, what is pending. The module checklist is in
 | 10 | Pension (pensioners, bills, life certificates, cases & PPO) | 🟢 Done & verified |
 | 11 | Recruitment & onboarding | 🟢 Done & verified |
 | 12 | Reports & dashboards (+ employee overview) | 🟢 Done & verified |
-| 13 | Ask AI | ⚪ Pending (next) |
+| 13 | Ask AI | 🟢 Done & verified |
 
 🟢 Done & verified · 🟡 In progress · ⚪ Pending
 
@@ -43,6 +43,20 @@ What has changed, what was verified, what is pending. The module checklist is in
 | Generated files are StoredFiles + a FileRecord register (`core/files`) | Same organisation wall as every upload; maker-checker release before download |
 
 ## Change log (newest first)
+
+### 2026-11-23 — Module 13: Ask AI ✅ — every module of the plan is now built
+- Ported with its 52 views, the SQL guard (PostgreSQL's own parser), the read-only role, the pass, the documents, the
+  three service adapters (Gemini, GPT, Claude on their official SDKs) and the practice stand-in; the Ask screen, the
+  documents screen and the Settings card.
+- **New in Kosh:** a fourth wall — every statement's transaction sets the organisation for row-level security and the
+  pass must belong to that organisation (tested: an Admin with full reach sees nothing of another organisation, even
+  with that organisation's live pass token). Ask is a platform add-on module and starts "off" in Settings; API keys
+  are encrypted with the organisation's own key; the role is `kosh_ask` (`scripts/ask-role.sql` when the migration
+  may not create it). Prompt wording made general.
+- Tests: the original's Ask unit tests (46) and integration tests (35) plus the cross-organisation test — 423 tests in
+  total, all passing.
+- Fixed while checking in a browser: the SQL parser's WebAssembly file must stay outside the bundle (as in the
+  original's config).
 
 ### 2026-11-23 — Module 12: reports, dashboards and the employee overview ✅
 - The 25 standard reports with filters and Excel / PDF export (organisation's name on every sheet, Kosh colours);

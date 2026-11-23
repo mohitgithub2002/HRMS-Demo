@@ -8,7 +8,7 @@ import "dotenv/config";
 import type { Prisma } from "@/generated/prisma/client";
 import { hashPassword } from "@/core/password";
 import { disconnectRaw, rawDb } from "@/core/tenancy/raw";
-import { tenantDb } from "@/core/tenancy/scoped";
+import { tenantDb, type TenantDb } from "@/core/tenancy/scoped";
 import { provisionTenant } from "@/platform/provision";
 import { DEMO_PASSWORD, DEMO_TENANTS } from "./seed-demo";
 import { DEMO_STAFF, SMC_STAFF, seedEmployees } from "./seed-employees";
@@ -135,6 +135,70 @@ async function seedDemoHiring(tenantId: string, orgCode: string) {
   });
 }
 
+/**
+ * Ask AI: a few documents to try it with on a demo or training copy — how-to notes that describe this system, and
+ * one sample office order. Added once, only while the organisation has no document of its own. Returns how many were added.
+ */
+export async function seedAskDocuments(db: TenantDb): Promise<number> {
+  if (await db.knowledgeDoc.count()) return 0;
+  const admin = await db.user.findFirst({ where: { loginType: "ADMIN", permissions: { has: "APPROVER" } }, orderBy: { loginId: "asc" } });
+  if (!admin) return 0;
+  const docs: { title: string; category: string; reference: string | null; audience: "EVERYONE" | "STAFF"; body: string }[] = [
+    {
+      title: "How to apply for leave",
+      category: "HOWTO",
+      reference: null,
+      audience: "EVERYONE",
+      body: [
+        "Leave is applied for on the Leave screen. Choose the kind of leave, the first and last day, and write the reason. The screen shows how many days will be counted and what balance will be left before you send it.",
+        "Who decides: your section head sanctions leave up to the limit set for each kind of leave. Longer leave, and leave for staff who have no section head on the system, is decided by the HR section. You get an SMS when it is decided.",
+        "Casual leave cannot be joined with earned leave or half pay leave. A medical certificate is attached for leave on medical grounds. Restricted holidays can be taken only on a day in the restricted-holiday list.",
+        "If your plans change, you can cancel leave that has not started. Leave already taken is corrected by the HR section.",
+        "Staff who do not use the system give a paper application to the HR section, which enters it with the sanction order.",
+      ].join("\n\n"),
+    },
+    {
+      title: "Office hours and attendance (sample order — replace with your own)",
+      category: "ORDER",
+      reference: "Sample/ADM/01",
+      audience: "EVERYONE",
+      body: [
+        "This is a sample order for practice. The organisation's Admin should replace it with the office order in force.",
+        "Office hours are 9:00 a.m. to 5:30 p.m. from Monday to Friday, with lunch from 1:00 p.m. to 1:30 p.m. Saturdays and Sundays are weekly offs unless a section is told otherwise.",
+        "Attendance is marked on the biometric device when coming in and when leaving. A person who comes in more than 15 minutes after office time is marked late. A person whose first and last punch are less than four hours apart is marked for half a day.",
+        "If a punch is missed, or you were away on official duty, send a missed-punch or on-duty request from My attendance the same week. Your section head decides it.",
+        "Each section head locks the section's attendance for the month by the 25th. Days without attendance, leave or an approved request are treated as dies-non and pay is not drawn for them.",
+      ].join("\n\n"),
+    },
+    {
+      title: "Payslips, tax and who to ask",
+      category: "HOWTO",
+      reference: null,
+      audience: "EVERYONE",
+      body: [
+        "Your payslip is under My payslips once the month's salary has been paid. It can be opened in Hindi or English and downloaded as a PDF. A link is also sent by SMS and email.",
+        "Income tax is deducted every month from an estimate of the whole year's income. To lower it under the old tax regime, fill in your declaration under My tax and attach the proofs before the date the Accounts section announces. Form 16 appears under My tax after the year ends.",
+        "GPF subscribers see their account under My funds; NPS subscribers see the contributions deducted from pay and the employer's share.",
+        "For a wrong amount on a payslip, a loan instalment or a tax question, write to the Accounts section. For a change of address, mobile number, bank account or nominee, send a request from My requests; a change of bank account takes effect once it is approved.",
+      ].join("\n\n"),
+    },
+    {
+      title: "Monthly payroll: order of work for the Accounts section",
+      category: "HOWTO",
+      reference: null,
+      audience: "STAFF",
+      body: [
+        "Before the pay bill: every section's attendance for the previous month should be locked; approved leave, pay changes, new loans and standing deductions should be entered.",
+        "Work out the salaries. Go through each point the pre-checks raise: a person without a bank account, net pay changed by more than 25 per cent, attendance not locked. Hold the pay or record why it is in order.",
+        "After approval, download the bank file and upload it on the bank's portal. When the bank returns failed credits, upload the return file and make the re-payment file.",
+        "Finish the month only after the salaries have reached the accounts: payslips are sent and the accounting summary is made. Then build the month's statutory files — NPS, EPF and ESIC — and deposit TDS by the due date shown on the Tax and funds screen.",
+      ].join("\n\n"),
+    },
+  ];
+  for (const d of docs) await db.knowledgeDoc.create({ data: { ...d, createdById: admin.id, createdByName: admin.name } as Prisma.KnowledgeDocUncheckedCreateInput });
+  return docs.length;
+}
+
 /** Punches, a locked month, requests and leave for the DEMO organisation, from the original demo data. */
 async function seedDemoAttendance(tenantId: string) {
   const db = tenantDb(tenantId);
@@ -164,7 +228,10 @@ async function main() {
   console.log(`Platform owner: ${owner.email}`);
   if (process.env.APP_ENV === "production") return;
   for (const demo of DEMO_TENANTS) {
-    const { tenant, created } = await seedTenant(demo, owner.id);
+    const { tenant: seeded, created } = await seedTenant(demo, owner.id);
+    // Demo organisations follow the module list here (a module added to the demo after the first seed is switched on).
+    const missing = (demo.org.modules as string[]).filter((m) => !seeded.modules.includes(m));
+    const tenant = missing.length ? await rawDb().tenant.update({ where: { id: seeded.id }, data: { modules: [...seeded.modules, ...missing] } }) : seeded;
     const staff = demo.code === "DEMO" ? DEMO_STAFF : SMC_STAFF;
     const db = tenantDb(tenant.id);
     await topUpPack(tenant.id, tenant.modules);
@@ -173,6 +240,9 @@ async function main() {
       await seedDemoAttendance(tenant.id);
       await seedDemoPay(tenant.id);
       await seedDemoHiring(tenant.id, tenant.code);
+      // Ask AI: on for everyone in the demo, with the practice documents (ASK_AI_PROVIDER=scripted answers without a key).
+      if (!(await db.setting.findFirst({ where: { key: "ask" } }))) await db.setting.create({ data: { key: "ask", value: { audience: "everyone", provider: "gemini", models: { gemini: "gemini-3.8-flash", openai: "gpt-5.5", claude: "claude-opus-5-5" } } } as Prisma.SettingUncheckedCreateInput });
+      await seedAskDocuments(db);
     }
     console.log(`${created ? "Created" : "Kept"} ${tenant.name} (${tenant.code})${people ? ` with ${people} employees` : ""}`);
   }

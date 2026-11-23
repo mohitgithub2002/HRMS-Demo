@@ -18,6 +18,7 @@ import { files } from "./files";
 import { easy } from "./easy";
 import { recruitment } from "./recruitment";
 import { reports } from "./reports";
+import { ask } from "./ask";
 
 /** Hindi — same areas and keys as English (tests/unit/i18n.test.ts). */
 export const hi = {
@@ -53,4 +54,5 @@ export const hi = {
   easy,
   recruitment,
   reports,
+  ask,
 };

@@ -29,12 +29,17 @@ npm run dev                   # http://localhost:3000
 ### Demo sign-ins (development and training copies)
 
 Password for every demo login: **`Kosh@2026`**. With `SMS_PROVIDER=console` the one-time code is shown on screen.
+The DEMO organisation has two closed months of payroll and pension, this month ready to work out, a vacancy with
+applicants, a leaver to settle, and Ask AI switched on — with `ASK_AI_PROVIDER="scripted"` a practice stand-in answers
+without an AI key.
 
 | Where | Organisation code | Login | Who |
 |---|---|---|---|
 | Platform console `/platform/login` | — | `owner@kosh.local` | Platform owner |
 | `/o/DEMO` | `DEMO` | `ADMIN` | Anita Sharma — Admin, Demo Cantonment Board |
 | `/o/DEMO` | `DEMO` | `HR01` · `ACC01` · `CHK01` · `IT01` | HR manager · Accounts manager · Checker · IT support |
+| `/o/DEMO` | `DEMO` | `DEMO00011` (or any `DEMO000nn`) | An employee — payslips, leave, attendance, record |
+| `/o/DEMO` | `DEMO` | `DEMO09001` · `DEMO/PPO/2012/0031` | A retired pensioner · a family pensioner (Hindi) |
 | `/o/SMC` | `SMC` | `ADMIN` · `HR01` | Shivalik Municipal Council (on trial, fewer modules) |
 
 The same login IDs exist in both organisations on purpose — they are different people.

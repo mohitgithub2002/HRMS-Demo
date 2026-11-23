@@ -67,6 +67,8 @@ export interface ShellProps {
   counts: { approvals: number };
   user: { name: string; role: string };
   org: { name: string; code: string; accent: string | null };
+  /** Ask AI is open to this login (the organisation's module and its "who may ask" setting). */
+  ask?: boolean;
   children: React.ReactNode;
 }
 
@@ -106,7 +108,30 @@ function NavList({ items, counts, onNavigate }: { items: MenuItem[]; counts: She
   );
 }
 
-function Sidebar({ items, counts, user, org, onNavigate }: Omit<ShellProps, "children"> & { onNavigate?: () => void }) {
+/** Ask AI: one button above the menu (not one of its eight places), as chat apps put "New chat". */
+function AskButton({ onNavigate }: { onNavigate?: () => void }) {
+  const t = useT();
+  const on = usePathname() === "/ask";
+  return (
+    <Link
+      href="/ask"
+      onClick={onNavigate}
+      aria-current={on ? "page" : undefined}
+      data-testid="ask-link"
+      className={cn(
+        "mb-3 flex items-center gap-3 rounded-xl px-3 py-2.5 text-[0.875rem] font-semibold ring-1 transition",
+        on ? "bg-gold-400/15 text-white ring-gold-400/40" : "bg-white/[0.04] text-night-ink ring-white/[0.08] hover:bg-white/[0.07] hover:text-white",
+      )}
+    >
+      <span className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-gold-300 to-gold-600 text-night" aria-hidden="true">
+        <Sparkles className="size-3.5" />
+      </span>
+      {t("ask.nav")}
+    </Link>
+  );
+}
+
+function Sidebar({ items, counts, user, org, ask, onNavigate }: Omit<ShellProps, "children"> & { onNavigate?: () => void }) {
   const t = useT();
   const router = useRouter();
   return (
@@ -125,6 +150,7 @@ function Sidebar({ items, counts, user, org, onNavigate }: Omit<ShellProps, "chi
         </div>
       </div>
       <nav aria-label={t("nav.menu")} className="scrollbar-thin flex-1 overflow-y-auto px-3 py-2">
+        {ask && <AskButton onNavigate={onNavigate} />}
         <NavList items={items} counts={counts} onNavigate={onNavigate} />
       </nav>
       <div className="border-t border-night-line p-3">
@@ -188,6 +214,11 @@ export function AppShell(props: ShellProps) {
             <span className="max-w-[40vw] truncate text-sm font-semibold text-ink">{props.org.code}</span>
           </Link>
           <div className="flex-1" />
+          {props.ask && (
+            <Link href="/ask" aria-label={t("ask.nav")} title={t("ask.nav")} data-testid="ask-link-mobile" className="grid size-9 place-items-center rounded-xl bg-gold-50 text-gold-700 ring-1 ring-gold-500/25 hover:bg-gold-100 lg:hidden dark:bg-gold-900/30 dark:text-gold-200">
+              <Sparkles className="size-4" aria-hidden="true" />
+            </Link>
+          )}
           {props.counts.approvals > 0 && (
             <Link href="/approvals" className="relative grid size-9 place-items-center rounded-xl text-muted hover:bg-sunken hover:text-ink" aria-label={`${t("nav.approvals")} (${props.counts.approvals})`}>
               <Inbox className="size-[1.1rem]" />

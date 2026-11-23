@@ -524,6 +524,23 @@ pension, two pensions into one account, pay after retirement or leaving, pay wit
 Home shows each login what needs them today ("My work") and the figures of their desk; the Admin also sees headcount
 by type, retirements in the next six months and the filings due.
 
+## Part H3 — Ask AI (✅ available, a platform add-on)
+
+People ask questions in plain words ("How many staff retire this year?", "What was my net pay in October?") and get an
+answer worked out from the records — only what their own login may already see — and from your documents.
+
+1. **Platform owner**: switch on the *Ask AI* module for the organisation in the console.
+2. **Once per installation**: the read-only database role. The migration creates it when its database login may; if
+   *Settings → Ask* says the role is missing, a database administrator runs
+   `psql -d <database> -v app=<application user> -f scripts/ask-role.sql` once.
+3. **Admin, *Settings → Ask***: choose the AI service (Gemini, GPT or Claude) and the model, paste the service's API
+   key (saved encrypted with your organisation's key, never shown again), press **Test**, then choose who may ask —
+   office staff or everyone. Decide first whether your policy allows records to be sent to an outside AI service.
+4. **Documents** (*Ask → Documents*): paste your policies, orders and circulars as text, each for everyone, office
+   staff or the Admin only. Ask quotes them with their reference.
+5. Every question is in the audit trail with the look-ups it made (never the rows); each person may ask 30 questions
+   in 10 minutes.
+
 ## Part I — Reference
 
 ### I1. Who may do what (summary)

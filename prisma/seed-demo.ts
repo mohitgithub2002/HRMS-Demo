@@ -20,7 +20,7 @@ export const DEMO_TENANTS: { code: string; org: Omit<ProvisionInput, "code">; us
       state: "Delhi",
       status: "ACTIVE",
       pack: "GOI_7CPC",
-      modules: ["recruitment", "attendance", "leave", "payroll", "loans", "statutory", "pension", "reports"],
+      modules: ["recruitment", "attendance", "leave", "payroll", "loans", "statutory", "pension", "reports", "ask"],
       admin: { name: "Anita Sharma", loginId: "ADMIN", mobile: "9810000001" },
     },
     users: [
