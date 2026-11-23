@@ -1,0 +1,11 @@
+import { apiRoute } from "@/core/api/route";
+import { finishRun } from "@/modules/payroll/simple";
+
+/** Building and sending payslips can take a while for a big bill. */
+export const maxDuration = 60;
+
+/** The simple way of working (payroll/simple.ts). */
+export const POST = apiRoute<{ id: string }>(async ({ actor, params }) => {
+  await finishRun(actor, params.id);
+  return { id: params.id };
+});

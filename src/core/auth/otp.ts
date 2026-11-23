@@ -16,16 +16,20 @@ export const OTP_MAX_PER_WINDOW = 5;
 
 export type OtpProblem = "too_many" | "cooldown";
 
-export async function issueOtp(input: { tenantId: string | null; userId: string; purpose: OtpPurpose; sentTo: string }) {
+/**
+ * Limits count per purpose, so a sign-in code never blocks a signing code. `cooldown: false` (signing codes) skips the
+ * 30-second wait: a signer may approve two different pay bills one after the other.
+ */
+export async function issueOtp(input: { tenantId: string | null; userId: string; purpose: OtpPurpose; sentTo: string; cooldown?: boolean }) {
   const db = rawDb();
   const now = Date.now();
   const recent = await db.otpChallenge.findMany({
-    where: { userId: input.userId, createdAt: { gt: new Date(now - OTP_WINDOW_MS) } },
+    where: { userId: input.userId, purpose: input.purpose, createdAt: { gt: new Date(now - OTP_WINDOW_MS) } },
     orderBy: { createdAt: "desc" },
     select: { createdAt: true },
   });
   if (recent.length >= OTP_MAX_PER_WINDOW) return { ok: false as const, problem: "too_many" as OtpProblem };
-  if (recent[0] && now - recent[0].createdAt.getTime() < OTP_RESEND_MS) return { ok: false as const, problem: "cooldown" as OtpProblem, waitS: Math.ceil((OTP_RESEND_MS - (now - recent[0].createdAt.getTime())) / 1000) };
+  if (input.cooldown !== false && recent[0] && now - recent[0].createdAt.getTime() < OTP_RESEND_MS) return { ok: false as const, problem: "cooldown" as OtpProblem, waitS: Math.ceil((OTP_RESEND_MS - (now - recent[0].createdAt.getTime())) / 1000) };
   const code = randomDigits(6);
   const challenge = await db.otpChallenge.create({
     data: { tenantId: input.tenantId, userId: input.userId, purpose: input.purpose, sentTo: input.sentTo, codeHash: "pending", expiresAt: new Date(now + OTP_TTL_MS) },

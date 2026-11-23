@@ -9,7 +9,7 @@ import type { User } from "@/generated/prisma/client";
 import { audit } from "@/core/audit";
 import { issueOtp, maskMobile, verifyOtp } from "@/core/auth/otp";
 import { SESSION_COOKIE, clearSessionCookie, createSession, currentSessionRow, endSession, endSessionsOf, setSessionCookie, verifySession } from "@/core/auth/session";
-import { deliver } from "@/core/connectors/messages";
+import { sendSms } from "@/core/connectors/sms";
 import { devHelpersEnabled } from "@/core/env";
 import { AppError, badRequest, tooMany } from "@/core/errors";
 import { hashPassword, verifyPassword } from "@/core/password";
@@ -37,8 +37,7 @@ async function startOtp(db: TenantDb, tenantId: string, user: User): Promise<Log
   if (!user.mobile) throw badRequest("errors.validation", { loginId: "auth.noMobile" });
   const r = await issueOtp({ tenantId, userId: user.id, purpose: "LOGIN", sentTo: user.mobile });
   if (!r.ok) throw tooMany(r.problem === "too_many" ? "auth.otpTooMany" : "errors.rateLimited");
-  const sent = await deliver({ channel: "SMS", to: user.mobile, template: "login_otp", text: `Your sign-in code is ${r.code}. It works for 5 minutes. Do not share it.` });
-  await db.messageLog.create({ data: { channel: "SMS", to: maskMobile(user.mobile), template: "login_otp", status: sent.ok ? "SENT" : "FAILED", error: sent.error } as never });
+  await sendSms(db, user.mobile, "otp", { otp: r.code }, user.locale === "hi" ? "hi" : "en");
   return { step: "otp", to: maskMobile(user.mobile), ...(devHelpersEnabled() ? { devCode: r.code } : {}) };
 }
 

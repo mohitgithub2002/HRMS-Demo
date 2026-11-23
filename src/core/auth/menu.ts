@@ -7,7 +7,7 @@
  */
 import type { TKey } from "@/i18n";
 import type { ModuleKey } from "@/core/tenancy/modules";
-import { can, canAll, canManageUsers, isFullAdmin, rolesOf, type Principal } from "./access";
+import { can, canAll, canManageUsers, fnEnabled, isFullAdmin, rolesOf, type Principal } from "./access";
 
 export type MenuIcon =
   | "home" | "inbox" | "users" | "briefcase" | "calendar" | "wallet" | "landmark" | "receipt" | "chart" | "settings"
@@ -29,7 +29,10 @@ interface Def extends MenuItem {
 }
 
 /** Screens that exist in this build (see the file comment). */
-export const BUILT = new Set<string>(["/", "/approvals", "/admin", "/profile", "/employees", "/my/record", "/my/requests", "/attendance", "/leave", "/my/attendance", "/my/team"]);
+export const BUILT = new Set<string>([
+  "/", "/approvals", "/admin", "/profile", "/employees", "/my/record", "/my/requests", "/attendance", "/leave", "/my/attendance", "/my/team",
+  "/payroll", "/statutory", "/pension", "/my/payslips", "/my/pension-slips", "/my/life-certificate",
+]);
 
 const always: Rule = () => true;
 const hasPerm = (...perms: string[]): Rule => (p) => p.permissions.some((x) => perms.includes(x));
@@ -147,6 +150,8 @@ export function adminTools(p: Principal): AdminTool[] {
     { key: "posts", href: "/admin/posts", label: "nav.posts", hint: "posts.subtitle", icon: "receipt", show: structure },
     { key: "users", href: "/admin/users", label: "nav.users", hint: "users.subtitle", icon: "users", show: canManageUsers(p) },
     { key: "settings", href: "/admin/settings", label: "nav.settings", hint: "settings.subtitle", icon: "settings", show: canManageUsers(p) },
+    { key: "rates", href: "/admin/rates", label: "nav.rates", hint: "rates.subtitle", icon: "scale", show: fnEnabled(p, "payroll") && (p.simple && isFullAdmin(p) ? true : can(p, "rates_rules", "approve") || can(p, "rates_rules", "create")) },
+    { key: "statutory", href: "/statutory", label: "nav.statutory", hint: "statutory.subtitle", icon: "landmark", show: fnEnabled(p, "statutory") && p.loginType === "ADMIN" && can(p, "statutory", "view") },
     { key: "audit", href: "/admin/audit", label: "nav.audit", hint: "audit.subtitle", icon: "shield", show: can(p, "audit_trail", "view") },
   ];
   return tools.filter((t) => t.show).map(({ show: _show, ...t }) => t);

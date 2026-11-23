@@ -30,11 +30,12 @@ for name in sys.argv[1:]:
         ln = ln.replace("[boardId", "[tenantId").replace("boardId_", "tenantId_")
         f = re.match(r'^\s+(\w+)\s+(\w+)(\??)', ln)
         if f: fields[f.group(1)] = (f.group(2), f.group(3))
-        # drop relations to models Kosh does not have (Board)
-        if re.match(r'^\s+board\s+Board\b', ln): continue
+        # drop relations to models Kosh does not have (the Board, the old migration console)
+        if re.match(r'^\s+\w+\s+(Board|RecordVerification|MigrationFile|MigrationRow|ParallelRun|ParallelDiff)\b', ln): continue
         body.append(ln)
     if not has_tenant:
-        body.insert(2, "  " + TENANT)
+        at = next(i for i, l in enumerate(body) if l.startswith("model ")) + 2  # after "model X {" and its id line
+        body.insert(at, "  " + TENANT)
     # relations for bare reference columns
     rel_lines = []
     for col, target in REF.items():

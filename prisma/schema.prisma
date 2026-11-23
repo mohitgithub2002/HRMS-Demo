@@ -105,15 +105,15 @@ model PlatformSession {
 
 /// What platform users did (create, suspend, change modules, reset an Admin). Append-only.
 model PlatformAudit {
-  id         String   @id @default(cuid())
-  userId     String?
-  userName   String?
-  action     String
-  tenantId   String?
-  summary    String
-  data       Json?
-  ip         String?
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String?
+  userName  String?
+  action    String
+  tenantId  String?
+  summary   String
+  data      Json?
+  ip        String?
+  createdAt DateTime @default(now())
 
   @@index([tenantId, createdAt])
   @@index([createdAt])
@@ -149,6 +149,8 @@ model OtpChallenge {
   purpose    OtpPurpose
   codeHash   String
   sentTo     String
+  /// What a signing code is for ({ kind, id, what }) — a pay bill code works only for that pay bill.
+  context    Json?
   attempts   Int        @default(0)
   expiresAt  DateTime
   consumedAt DateTime?
@@ -161,11 +163,11 @@ model OtpChallenge {
 /// A biometric device that pushes punches (eSSL / ZKTeco "ADMS"): its serial number says which organisation it
 /// belongs to, because a push arrives without anyone signed in. Kept in step with Settings → Office hours.
 model DeviceRegistration {
-  serial    String   @id
+  serial    String    @id
   tenantId  String
   name      String?
   lastSeen  DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([tenantId])
 }
@@ -217,9 +219,12 @@ model Section {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  employees Employee[]
-  attendanceLocks AttendanceLock[]
+  employees        Employee[]
+  attendanceLocks  AttendanceLock[]
   attendanceMonths AttendanceMonth[]
+  vacancys         Vacancy[]
+  payslips         Payslip[]
+  noDuesItems      NoDuesItem[]
 
   @@unique([tenantId, code])
 }
@@ -239,6 +244,8 @@ model Post {
   updatedAt     DateTime @updatedAt
 
   employees Employee[]
+  vacancys  Vacancy[]
+  payslips  Payslip[]
 
   @@unique([tenantId, code])
 }
@@ -261,12 +268,15 @@ model User {
   locale             String       @default("en")
   /// The person's employee record, when the login belongs to an employee or pensioner.
   employeeId         String?
+  /// The pension this login sees (a family pensioner may have no employee record of their own).
+  pensionerId        String?
   lastLoginAt        DateTime?
   passwordChangedAt  DateTime?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
-  employee Employee? @relation(fields: [employeeId], references: [id])
+  employee  Employee?  @relation(fields: [employeeId], references: [id])
+  pensioner Pensioner? @relation(fields: [pensionerId], references: [id])
 
   @@unique([tenantId, loginId])
   @@index([tenantId, mobile])
@@ -508,21 +518,34 @@ model Employee {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  section     Section                @relation(fields: [sectionId], references: [id])
-  post        Post                   @relation(fields: [postId], references: [id])
-  users       User[]
-  family      FamilyMember[]
-  nominees    Nominee[]
-  documents   EmployeeDocument[]
-  serviceBook ServiceBookEntry[]
-  history     EmployeeFieldHistory[]
-  payHistory  PayHistory[]
-  attendancePunchs AttendancePunch[]
-  attendanceDays AttendanceDay[]
+  section            Section                @relation(fields: [sectionId], references: [id])
+  post               Post                   @relation(fields: [postId], references: [id])
+  users              User[]
+  family             FamilyMember[]
+  nominees           Nominee[]
+  documents          EmployeeDocument[]
+  serviceBook        ServiceBookEntry[]
+  history            EmployeeFieldHistory[]
+  payHistory         PayHistory[]
+  attendancePunchs   AttendancePunch[]
+  attendanceDays     AttendanceDay[]
   attendanceRequests AttendanceRequest[]
-  attendanceMonths AttendanceMonth[]
-  leaveLedgers LeaveLedger[]
-  leaveApplications LeaveApplication[]
+  attendanceMonths   AttendanceMonth[]
+  leaveLedgers       LeaveLedger[]
+  leaveApplications  LeaveApplication[]
+  joinings           Joining[]
+  employeePayItems   EmployeePayItem[]
+  payrollExceptions  PayrollException[]
+  separations        Separation[]
+  payslips           Payslip[]
+  loans              Loan[]
+  gpfEntries         GpfEntry[]
+  gpfAdvances        GpfAdvance[]
+  taxDeclarations    TaxDeclaration[]
+  taxCarryIns        TaxCarryIn[]
+  form16s            Form16[]
+  pensioners         Pensioner[]
+  pensionCases       PensionCase[]
 
   @@unique([tenantId, employeeCode])
   @@unique([tenantId, biometricId])
@@ -733,7 +756,7 @@ enum HolidayKind {
 /// Holiday calendar (AT-08). Rows exist only for lists a Checker has approved.
 model Holiday {
   id        String      @id @default(cuid())
-  tenantId String @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenantId  String      @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   date      DateTime    @db.Date
   name      String
   nameHi    String
@@ -769,7 +792,7 @@ enum DaySource {
 /// One raw punch from a device push or an imported file. Duplicates are ignored by the unique key.
 model AttendancePunch {
   id           String   @id @default(cuid())
-  tenantId String @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenantId     String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   employeeId   String
   at           DateTime
   deviceSerial String?
@@ -785,7 +808,7 @@ model AttendancePunch {
 /// A punch file that was saved (AT-01): who, when, which format, checksum of the stored copy.
 model AttendanceImport {
   id             String   @id @default(cuid())
-  tenantId String @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenantId       String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   format         String
   fileName       String
   fileId         String
@@ -805,7 +828,7 @@ model AttendanceImport {
 /// The status of one person on one day. Days without a row are worked out from the calendar and punches.
 model AttendanceDay {
   id            String    @id @default(cuid())
-  tenantId String @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenantId      String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   employeeId    String
   date          DateTime  @db.Date
   status        DayStatus
@@ -840,7 +863,7 @@ enum AttendanceRequestType {
 /// Missed-punch or on-duty request by an employee (AT-04), decided by the reporting officer.
 model AttendanceRequest {
   id          String                @id @default(cuid())
-  tenantId String @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenantId    String                @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   employeeId  String
   date        DateTime              @db.Date
   type        AttendanceRequestType
@@ -862,7 +885,7 @@ model AttendanceRequest {
 /// A section's month, locked by its reporting officer or HR (AT-05). Payroll reads locked months only.
 model AttendanceLock {
   id           String    @id @default(cuid())
-  tenantId String @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenantId     String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   sectionId    String
   /// "YYYY-MM"
   month        String
@@ -880,7 +903,7 @@ model AttendanceLock {
 /// Month totals per person, frozen at lock; what payroll reads (AT-05, AT-06).
 model AttendanceMonth {
   id           String   @id @default(cuid())
-  tenantId String @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenantId     String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   employeeId   String
   sectionId    String
   month        String
@@ -904,7 +927,7 @@ model AttendanceMonth {
   createdAt    DateTime @default(now())
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  section Section @relation(fields: [sectionId], references: [id])
+  section  Section  @relation(fields: [sectionId], references: [id])
 
   @@unique([employeeId, month])
   @@index([tenantId, month])
@@ -929,7 +952,7 @@ enum LeaveCreditMode {
 /// The leave rules table (LV-01). HR proposes a change, an Admin approves it.
 model LeaveType {
   id               String          @id @default(cuid())
-  tenantId String @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenantId         String          @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   code             String
   name             String
   nameHi           String
@@ -973,7 +996,7 @@ enum LeaveEntryKind {
 /// Leave account (LV-07): every credit and debit; the balance is the sum.
 model LeaveLedger {
   id            String         @id @default(cuid())
-  tenantId String @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenantId      String         @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   employeeId    String
   leaveCode     String
   date          DateTime       @db.Date
@@ -1003,7 +1026,7 @@ enum LeaveStatus {
 
 model LeaveApplication {
   id               String      @id @default(cuid())
-  tenantId String @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  tenantId         String      @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   employeeId       String
   leaveCode        String
   fromDate         DateTime    @db.Date
@@ -1035,4 +1058,930 @@ model LeaveApplication {
 
   @@index([employeeId, fromDate])
   @@index([tenantId, status])
+}
+
+enum FileDirection {
+  OUTGOING
+  INCOMING
+}
+
+enum FileStatus {
+  PREVIEW
+  APPROVED
+  REJECTED
+  DOWNLOADED
+  VALIDATED
+  INVALID
+  APPLIED
+}
+
+/// Every file the system builds or receives. Outgoing files are previewed, approved by an Admin and
+/// logged with a checksum (PRD §12 rule 2, ST-09); incoming files are validated first (rule 3).
+model FileRecord {
+  id             String        @id @default(cuid())
+  tenantId       String        @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  direction      FileDirection
+  kind           String
+  period         String?
+  fileName       String
+  mimeType       String
+  size           Int
+  sha256         String
+  storageKey     String
+  status         FileStatus
+  meta           Json?
+  createdById    String
+  createdByName  String
+  approvedById   String?
+  approvedAt     DateTime?
+  downloadCount  Int           @default(0)
+  lastDownloadAt DateTime?
+  createdAt      DateTime      @default(now())
+
+  @@index([tenantId, kind, period])
+}
+
+enum SeparationKind {
+  SUSPENSION
+  RESIGNATION
+  REMOVAL
+  DISMISSAL
+  TERMINATION
+  CONTRACT_END
+  TRANSFER_OUT
+}
+
+enum SeparationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  /// A suspension that ended (reinstated, or turned into leaving service).
+  ENDED
+}
+
+enum SettlementStatus {
+  NONE
+  CHECKING
+  APPROVED
+  SETTLED
+}
+
+/// Client add-on: a suspension, or leaving service other than retirement or death (those have their own pension flows),
+/// with the full and final settlement — what is due to the person, and every loan and recovery still outstanding.
+model Separation {
+  id               String           @id @default(cuid())
+  tenantId         String           @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  employeeId       String
+  kind             SeparationKind
+  status           SeparationStatus @default(PENDING)
+  /// Suspension: the first day under suspension. Leaving: the last day of service.
+  effectiveDate    DateTime         @db.Date
+  orderNumber      String
+  orderDate        DateTime         @db.Date
+  reason           String
+  /// The scanned order (an employee document).
+  documentId       String?
+  /// A suspension ended (reinstated, or turned into leaving service) on this date.
+  endDate          DateTime?        @db.Date
+  endNote          String?
+  /// What the Payroll clerk entered for the settlement: leave days, lines entered by hand, withheld pay released or not.
+  inputs           Json?
+  /// The settlement statement as sent for checking (fixed from then on); worked out afresh until then.
+  statement        Json?
+  settlementStatus SettlementStatus @default(NONE)
+  settlementRunId  String?
+  /// Money paid back by the person when the recoveries were more than the dues: [{ receiptNo, date, amount, byName, at }].
+  receipts         Json?
+  settledAt        DateTime?
+  createdById      String
+  createdByName    String
+  approvedAt       DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([employeeId])
+}
+
+enum VacancyStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  ADVERTISED
+  CLOSED
+  CANCELLED
+  REJECTED
+}
+
+enum SelectionStatus {
+  OPEN
+  PENDING_APPROVAL
+  APPROVED
+}
+
+/// A vacancy is created only against a vacant sanctioned post and approved by an Admin before it is advertised (RO-01, RO-02).
+model Vacancy {
+  id              String          @id @default(cuid())
+  tenantId        String          @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  referenceNo     String
+  sectionId       String
+  postId          String
+  payLevel        String
+  seats           Int
+  /// Reservation break-up { GEN, OBC, SC, ST, EWS } — seats per category (RO-02).
+  reservation     Json
+  advertNumber    String?
+  advertDate      DateTime?       @db.Date
+  lastDate        DateTime?       @db.Date
+  status          VacancyStatus   @default(DRAFT)
+  selectionStatus SelectionStatus @default(OPEN)
+  notes           String?
+  createdById     String
+  approvedById    String?
+  approvedAt      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  applicants Applicant[]
+  joinings   Joining[]
+
+  section Section @relation(fields: [sectionId], references: [id])
+  post    Post    @relation(fields: [postId], references: [id])
+
+  @@unique([tenantId, referenceNo])
+  @@index([tenantId, status])
+}
+
+enum ApplicantStatus {
+  APPLIED
+  ELIGIBLE
+  SHORTLISTED
+  SELECTED
+  WAITLISTED
+  REJECTED
+}
+
+/// RO-03: applicants added one by one or by Excel import. The exam or interview happens outside; only its result is recorded.
+model Applicant {
+  id                    String          @id @default(cuid())
+  tenantId              String          @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  vacancyId             String
+  applicationNo         String
+  name                  String
+  nameHi                String?
+  fatherName            String?
+  gender                String
+  dateOfBirth           DateTime        @db.Date
+  category              String
+  mobile                String?
+  email                 String?
+  address               String?
+  qualification         String?
+  score                 Decimal?        @db.Decimal(7, 2)
+  meritRank             Int?
+  status                ApplicantStatus @default(APPLIED)
+  remarks               String?
+  appointmentLetterNo   String?
+  appointmentLetterDate DateTime?       @db.Date
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  vacancy Vacancy  @relation(fields: [vacancyId], references: [id], onDelete: Cascade)
+  joining Joining?
+
+  @@unique([vacancyId, applicationNo])
+  @@index([vacancyId, status])
+}
+
+enum JoiningStatus {
+  IN_PROGRESS
+  SUBMITTED
+  COMPLETED
+  CANCELLED
+}
+
+/// RO-05/RO-06/RO-09: turns a selected candidate (or a contract / daily-wage worker hired directly) into an employee.
+/// The person's record is a draft employee from the start; "Complete joining" sends it to the Checker.
+model Joining {
+  id          String        @id @default(cuid())
+  tenantId    String        @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  applicantId String?       @unique
+  vacancyId   String?
+  employeeId  String        @unique
+  /// { documents, medical, police, oath, bank, pan, aadhaarConsent } → { done, documentId, note, by, at }
+  checklist   Json
+  status      JoiningStatus @default(IN_PROGRESS)
+  createdById String
+  completedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  applicant Applicant? @relation(fields: [applicantId], references: [id])
+  vacancy   Vacancy?   @relation(fields: [vacancyId], references: [id])
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+}
+
+/// Dated rates (PR-02, ST-01): DA %, HRA %, TA by tier, NPS, GPF, GIS, EPF, ESIC… The rate for a month is the latest
+/// row on or before the month's first day; a new row with a past date is how arrears start (PR-08).
+model PayRate {
+  id            String   @id @default(cuid())
+  tenantId      String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  key           String
+  value         Decimal  @db.Decimal(14, 4)
+  effectiveFrom DateTime @db.Date
+  note          String?
+  createdById   String?
+  createdAt     DateTime @default(now())
+
+  @@unique([tenantId, key, effectiveFrom])
+  @@index([tenantId, key])
+}
+
+enum PayHeadKind {
+  EARNING
+  DEDUCTION
+  EMPLOYER
+}
+
+/// SYSTEM: worked out by the pay engine (Basic, DA, HRA, TA, NPS…). FIXED: rupees a month for the listed posts.
+/// PERCENT_BASIC: a percentage of Basic for the listed posts (NPA). ITEM: only through an employee pay item.
+enum PayHeadCalc {
+  SYSTEM
+  FIXED
+  PERCENT_BASIC
+  ITEM
+}
+
+/// Pay heads master (PR-03, PR-04): every earning, deduction and employer share with its formula and account head.
+model PayHead {
+  id          String      @id @default(cuid())
+  tenantId    String      @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  code        String
+  name        String
+  nameHi      String
+  kind        PayHeadKind
+  calc        PayHeadCalc
+  /// Rupees for FIXED, percent for PERCENT_BASIC.
+  value       Decimal     @default(0) @db.Decimal(12, 2)
+  postCodes   String[]
+  /// Reduced for days not paid (most earnings); fixed deductions are not.
+  prorate     Boolean     @default(true)
+  /// Counts as pay for DA and NPS (NPA).
+  countsForDa Boolean     @default(false)
+  taxable     Boolean     @default(true)
+  /// e-Chhawani account head (PR-14).
+  accountHead String
+  sortOrder   Int         @default(0)
+  isActive    Boolean     @default(true)
+  version     Int         @default(1)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([tenantId, code])
+}
+
+/// A standing allowance or deduction for one person (licence fee, society dues, GPF subscription, TDS…).
+model EmployeePayItem {
+  id          String   @id @default(cuid())
+  tenantId    String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  employeeId  String
+  headCode    String
+  amount      Decimal  @db.Decimal(12, 2)
+  /// "YYYY-MM"
+  fromMonth   String
+  toMonth     String?
+  note        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([tenantId, headCode])
+}
+
+/// PR-05 pay groups.
+enum PayGroup {
+  OPS
+  NPS
+  CONTRACT
+  PENSION
+}
+
+/// S-40: Run → Fix exceptions (DRAFT) → Check (CHECKING) → Approve and sign (APPROVING → APPROVED) → Pay (PAID) → CLOSED.
+enum PayrollStatus {
+  DRAFT
+  CHECKING
+  APPROVING
+  APPROVED
+  PAID
+  CLOSED
+}
+
+/// REGULAR: the month's pay bill. SUPPLEMENTARY: arrears, pay withheld earlier, or a joiner's missed month (PR-08, S-42).
+enum RunKind {
+  REGULAR
+  SUPPLEMENTARY
+}
+
+model PayrollRun {
+  id             String        @id @default(cuid())
+  tenantId       String        @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  payGroup       PayGroup
+  /// "YYYY-MM"
+  month          String
+  kind           RunKind       @default(REGULAR)
+  /// 0 for the regular bill; 1, 2… for that month's supplementary bills.
+  seq            Int           @default(0)
+  title          String?
+  /// What a supplementary bill pays: { type: "ARREARS" | "WITHHELD" | "JOINER", … } — kept so it can be worked out again.
+  source         Json?
+  status         PayrollStatus @default(DRAFT)
+  /// How many times the run was worked out again.
+  version        Int           @default(1)
+  runById        String
+  runByName      String
+  runAt          DateTime
+  employees      Int           @default(0)
+  gross          Decimal       @default(0) @db.Decimal(14, 2)
+  deductions     Decimal       @default(0) @db.Decimal(14, 2)
+  net            Decimal       @default(0) @db.Decimal(14, 2)
+  employer       Decimal       @default(0) @db.Decimal(14, 2)
+  submittedAt    DateTime?
+  checkedById    String?
+  checkedByName  String?
+  approvedById   String?
+  approvedByName String?
+  approvedAt     DateTime?
+  bankFileId     String?
+  paidAt         DateTime?
+  /// When the bank's return file (failed credits) was read, or "all credited" was recorded.
+  returnAt       DateTime?
+  /// PR-14 accounting summary built at month close.
+  summaryFileId  String?
+  /// SL-04: when payslip notices (SMS link and email) went out.
+  payslipsSentAt DateTime?
+  closedAt       DateTime?
+  reopenedAt     DateTime?
+  reopenNote     String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  payslips   Payslip[]
+  exceptions PayrollException[]
+
+  @@unique([tenantId, payGroup, month, kind, seq])
+}
+
+enum PayslipStatus {
+  INCLUDED
+  WITHHELD
+}
+
+enum CreditStatus {
+  CREDITED
+  FAILED
+  REPAID
+}
+
+/// One person's pay in a run: every head as a line, totals, and how the days were worked out.
+model Payslip {
+  id             String        @id @default(cuid())
+  tenantId       String        @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  runId          String
+  employeeId     String
+  month          String
+  payGroup       PayGroup
+  sectionId      String
+  postId         String
+  payLevel       String?
+  payCell        Int?
+  status         PayslipStatus @default(INCLUDED)
+  withheldReason String?
+  daysInMonth    Int
+  daysOnRoll     Decimal       @db.Decimal(5, 1)
+  /// Dies-non and leave on no pay from last month's locked attendance (D-17), and leave on half pay.
+  lossDays       Decimal       @default(0) @db.Decimal(5, 1)
+  halfPayDays    Decimal       @default(0) @db.Decimal(5, 1)
+  workedDays     Decimal?      @db.Decimal(5, 1)
+  /// [{ code, name, nameHi, kind, amount, accountHead, note }]
+  lines          Json
+  gross          Decimal       @db.Decimal(12, 2)
+  deductions     Decimal       @db.Decimal(12, 2)
+  net            Decimal       @db.Decimal(12, 2)
+  employer       Decimal       @db.Decimal(12, 2)
+  bankLast4      String?
+  ifsc           String?
+  lastNet        Decimal?      @db.Decimal(12, 2)
+  changePct      Decimal?      @db.Decimal(8, 2)
+  creditStatus   CreditStatus?
+  creditNote     String?
+  /// The re-pay bank file for a failed credit (PR-12).
+  repayFileId    String?
+  /// Month-by-month arrears (due vs drawn) for a supplementary bill, and the loan instalments in a regular one.
+  detail         Json?
+  /// SL-04: when the payslip notice was sent.
+  sentAt         DateTime?
+  /// Pension slips (PN-02): the pension paid — the slip's employee is the one whose service earned it.
+  pensionerId    String?
+  createdAt      DateTime      @default(now())
+
+  run      PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  employee Employee   @relation(fields: [employeeId], references: [id])
+
+  section Section @relation(fields: [sectionId], references: [id])
+  post    Post    @relation(fields: [postId], references: [id])
+
+  @@unique([runId, employeeId])
+  @@index([employeeId, month])
+  @@index([pensionerId])
+}
+
+enum ExceptionSeverity {
+  BLOCK
+  WARN
+}
+
+enum ExceptionResolution {
+  EXPLAINED
+  WITHHELD
+  WAIVED
+}
+
+/// PR-10 pre-checks. Blocking ones must be fixed (or the pay withheld) before the Checker sees the run;
+/// warnings need a remark the Checker reads.
+model PayrollException {
+  id             String               @id @default(cuid())
+  tenantId       String               @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  runId          String
+  employeeId     String?
+  code           String
+  severity       ExceptionSeverity
+  vars           Json?
+  resolution     ExceptionResolution?
+  note           String?
+  resolvedById   String?
+  resolvedByName String?
+  resolvedAt     DateTime?
+  createdAt      DateTime             @default(now())
+
+  run PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  employee Employee? @relation(fields: [employeeId], references: [id])
+
+  @@index([runId])
+}
+
+enum LoanType {
+  HBA
+  VEHICLE
+  COMPUTER
+  FESTIVAL
+  OTHER
+}
+
+enum LoanStatus {
+  PENDING
+  RUNNING
+  CLOSED
+  REJECTED
+}
+
+/// PR-09: a loan or advance — principal first in equal instalments, then the simple interest; recovery stops at zero.
+model Loan {
+  id               String     @id @default(cuid())
+  tenantId         String     @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  employeeId       String
+  type             LoanType
+  purpose          String?
+  principal        Decimal    @db.Decimal(12, 2)
+  /// Simple interest, % a year, on the principal still due each month; 0 for interest-free advances.
+  interestRate     Decimal    @default(0) @db.Decimal(6, 3)
+  instalments      Int
+  instalmentAmount Decimal    @db.Decimal(12, 2)
+  sanctionDate     DateTime   @db.Date
+  orderNumber      String?
+  /// "YYYY-MM": the first month an instalment is recovered.
+  startMonth       String
+  status           LoanStatus @default(PENDING)
+  closedMonth      String?
+  /// Interest already owed on a loan brought from the old system (recovered after the principal, like the rest).
+  openingInterest  Decimal    @default(0) @db.Decimal(12, 2)
+  createdById      String
+  createdByName    String
+  createdAt        DateTime   @default(now())
+
+  employee   Employee       @relation(fields: [employeeId], references: [id])
+  recoveries LoanRecovery[]
+
+  @@index([employeeId])
+  @@index([tenantId, status])
+}
+
+/// An instalment recovered through an approved payroll; removed again if that payroll is reopened (PR-13).
+model LoanRecovery {
+  id        String   @id @default(cuid())
+  tenantId  String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  loanId    String
+  runId     String
+  month     String
+  principal Decimal  @db.Decimal(12, 2)
+  interest  Decimal  @db.Decimal(12, 2)
+  createdAt DateTime @default(now())
+
+  loan Loan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@unique([loanId, runId])
+  @@index([runId])
+}
+
+enum GpfEntryKind {
+  OPENING
+  SUBSCRIPTION
+  REFUND
+  ADVANCE
+  WITHDRAWAL
+  INTEREST
+}
+
+/// GPF account (§9): every credit and debit; the balance is the sum. Subscriptions and refunds come from approved pay bills.
+model GpfEntry {
+  id          String       @id @default(cuid())
+  tenantId    String       @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  employeeId  String
+  /// "YYYY-MM" the entry belongs to.
+  month       String
+  /// "2026-27"
+  fy          String
+  kind        GpfEntryKind
+  /// Credit positive, debit negative.
+  amount      Decimal      @db.Decimal(12, 2)
+  runId       String?
+  /// The advance or withdrawal this entry pays out or recovers.
+  advanceId   String?
+  note        String?
+  createdById String?
+  createdAt   DateTime     @default(now())
+
+  employee Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  advance  GpfAdvance? @relation(fields: [advanceId], references: [id])
+
+  @@index([employeeId, month])
+  @@index([runId])
+}
+
+enum GpfAdvanceKind {
+  ADVANCE
+  WITHDRAWAL
+}
+
+enum GpfAdvanceStatus {
+  PENDING
+  RUNNING
+  CLOSED
+  REJECTED
+}
+
+/// GPF advance (paid back in instalments through the payroll) or final withdrawal (not paid back). Payroll sanctions,
+/// a Checker checks, an Admin approves.
+model GpfAdvance {
+  id               String           @id @default(cuid())
+  tenantId         String           @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  employeeId       String
+  kind             GpfAdvanceKind
+  purpose          String
+  amount           Decimal          @db.Decimal(12, 2)
+  /// 0 for a withdrawal.
+  instalments      Int              @default(0)
+  instalmentAmount Decimal          @default(0) @db.Decimal(12, 2)
+  sanctionDate     DateTime         @db.Date
+  orderNumber      String
+  /// First month of recovery ("YYYY-MM") — the month after the advance is approved.
+  startMonth       String?
+  status           GpfAdvanceStatus @default(PENDING)
+  closedMonth      String?
+  createdById      String
+  createdByName    String
+  createdAt        DateTime         @default(now())
+
+  employee Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  entries  GpfEntry[]
+
+  @@index([employeeId, status])
+}
+
+/// ST-01: income-tax rules for a financial year and regime — slabs, standard deduction, rebate, cess. Editable through an Admin.
+model TaxRule {
+  id                String   @id @default(cuid())
+  tenantId          String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  fy                String
+  regime            String
+  /// [{ upTo: number | null, rate: number }] — rupees, % — upTo null is "above".
+  slabs             Json
+  standardDeduction Decimal  @db.Decimal(12, 2)
+  rebateIncomeLimit Decimal  @db.Decimal(14, 2)
+  rebateMax         Decimal  @db.Decimal(12, 2)
+  cessPercent       Decimal  @db.Decimal(5, 2)
+  version           Int      @default(1)
+  updatedAt         DateTime @updatedAt
+
+  @@unique([tenantId, fy, regime])
+}
+
+enum DeclarationStatus {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+  RETURNED
+}
+
+/// ST-02, ST-03: the regime chosen for a year and the investments declared, with proofs; verified by HR & Accounts.
+model TaxDeclaration {
+  id           String            @id @default(cuid())
+  tenantId     String            @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  employeeId   String
+  fy           String
+  regime       String            @default("NEW")
+  /// { sec80C, sec80D, sec80CCD1B, homeLoanInterest, rentPaid, otherIncome } in rupees (old regime deductions).
+  items        Json
+  /// Stored proof files: [{ key, name, size, sha256 }]
+  proofs       Json?
+  status       DeclarationStatus @default(DRAFT)
+  remarks      String?
+  submittedAt  DateTime?
+  verifiedById String?
+  verifiedAt   DateTime?
+  updatedAt    DateTime          @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, fy])
+}
+
+/// ST-04: salary and TDS of the year paid outside this system — by the old system before cut-over (§15) or by a previous
+/// employer (Form 12B) — counted in the year's projection and in Form 16.
+model TaxCarryIn {
+  id          String   @id @default(cuid())
+  tenantId    String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  employeeId  String
+  fy          String
+  salary      Decimal  @db.Decimal(14, 2)
+  tds         Decimal  @db.Decimal(14, 2)
+  note        String
+  createdById String
+  updatedAt   DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, fy])
+}
+
+/// ST-05: a TDS challan deposited for a month.
+model TdsChallan {
+  id          String   @id @default(cuid())
+  tenantId    String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  fy          String
+  month       String
+  bsrCode     String
+  challanNo   String
+  depositedOn DateTime @db.Date
+  tax         Decimal  @db.Decimal(14, 2)
+  cess        Decimal  @db.Decimal(14, 2)
+  interest    Decimal  @default(0) @db.Decimal(14, 2)
+  createdById String
+  createdAt   DateTime @default(now())
+
+  @@unique([tenantId, month, challanNo])
+}
+
+/// ST-07: Form 16 for a person and year — Part B generated here, Part A imported from TRACES; published to the employee.
+model Form16 {
+  id          String    @id @default(cuid())
+  tenantId    String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  employeeId  String
+  fy          String
+  partBKey    String?
+  partBSha    String?
+  partAKey    String?
+  partASha    String?
+  /// The year's tax working printed on Part B (taxWorking) plus TDS deducted.
+  working     Json?
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, fy])
+}
+
+/// ST-01, ST-08: when each filing is due. MONTHLY: the day of the next month; QUARTERLY / YEARLY: listed "MM-DD" dates;
+/// AFTER_PAY: days after the pay bill is approved.
+model DueRule {
+  id        String   @id @default(cuid())
+  tenantId  String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  code      String
+  name      String
+  nameHi    String
+  kind      String
+  day       Int      @default(0)
+  dates     String[]
+  version   Int      @default(1)
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, code])
+}
+
+/// ST-08: a reminder sent for a due date (once).
+model DueReminder {
+  id       String   @id @default(cuid())
+  tenantId String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  code     String
+  dueOn    DateTime @db.Date
+  sentAt   DateTime @default(now())
+
+  @@unique([tenantId, code, dueOn])
+}
+
+enum PensionType {
+  SUPERANNUATION
+  VOLUNTARY
+  INVALID
+  COMPULSORY
+  FAMILY
+}
+
+enum PensionerStatus {
+  ACTIVE
+  STOPPED
+}
+
+/// PN-01: a pension being paid — to the retired employee (relation SELF) or, after a death, to a family member. It always
+/// belongs to the employee whose service earned it; family pensioners and pensioners brought from the old system have
+/// no employee record of their own (the retired employee's record is kept with status RETIRED or DECEASED).
+model Pensioner {
+  id                 String          @id @default(cuid())
+  tenantId           String          @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  employeeId         String
+  ppoNumber          String
+  type               PensionType
+  status             PensionerStatus @default(ACTIVE)
+  /// SELF, SPOUSE, SON, DAUGHTER, MOTHER, FATHER …
+  relation           String          @default("SELF")
+  payeeName          String
+  payeeNameHi        String?
+  payeeDob           DateTime        @db.Date
+  mobile             String?
+  email              String?
+  /// Monthly basic pension or family pension, rupees.
+  basicPension       Decimal         @db.Decimal(12, 2)
+  /// Family pension at the enhanced rate until `reducedFrom`, then this amount.
+  reducedPension     Decimal?        @db.Decimal(12, 2)
+  reducedFrom        DateTime?       @db.Date
+  /// Monthly pension commuted; recovered until restored 15 years after commutation (PN-03).
+  commutedAmount     Decimal         @default(0) @db.Decimal(12, 2)
+  commutationDate    DateTime?       @db.Date
+  commutationLumpSum Decimal?        @db.Decimal(14, 2)
+  /// Fixed medical allowance (not for those who use CGHS).
+  fmaEligible        Boolean         @default(true)
+  startDate          DateTime        @db.Date
+  endDate            DateTime?       @db.Date
+  endReason          String?
+  /// After a death: what approved bills paid for days after it, by month and head (being recovered) — so later arrears
+  /// for those months count only what was due (PN-05, PN-11).
+  endDetail          Json?
+  bankAccountEnc     String?
+  bankAccountHash    String?
+  bankAccountLast4   String?
+  ifsc               String?
+  bankName           String?
+  /// The pension this one follows (family pension after the pensioner's death).
+  previousId         String?
+  caseId             String?
+  createdById        String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  employee         Employee          @relation(fields: [employeeId], references: [id])
+  lifeCertificates LifeCertificate[]
+  users            User[]
+
+  @@unique([tenantId, ppoNumber])
+  @@index([employeeId])
+}
+
+enum LifeCertificateSource {
+  MANUAL
+  JEEVAN_PRAMAAN
+}
+
+enum LifeCertificateStatus {
+  SUBMITTED
+  VERIFIED
+  REJECTED
+}
+
+/// PN-06: a life certificate — entered by HR & Accounts (Pension), or a Jeevan Pramaan certificate uploaded by the
+/// pensioner and verified by Pension.
+model LifeCertificate {
+  id           String                @id @default(cuid())
+  tenantId     String                @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  pensionerId  String
+  source       LifeCertificateSource
+  status       LifeCertificateStatus @default(VERIFIED)
+  /// The date the certificate was given (on the certificate).
+  certifiedOn  DateTime              @db.Date
+  /// Jeevan Pramaan ID, when it came from there.
+  jpId         String?
+  fileKey      String?
+  fileSha      String?
+  fileName     String?
+  note         String?
+  enteredById  String
+  verifiedById String?
+  verifiedAt   DateTime?
+  createdAt    DateTime              @default(now())
+
+  pensioner Pensioner @relation(fields: [pensionerId], references: [id], onDelete: Cascade)
+
+  @@index([pensionerId, certifiedOn])
+}
+
+enum PensionCaseStatus {
+  DRAFT
+  CHECKING
+  APPROVING
+  APPROVED
+  REJECTED
+}
+
+/// PN-08, PN-09: a new pension case — the calculator's inputs and working, checked by a Checker and approved by an Admin,
+/// then the PPO. For a death in service (type FAMILY) the retirement date is the date of death.
+model PensionCase {
+  id             String            @id @default(cuid())
+  tenantId       String            @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  employeeId     String
+  type           PensionType
+  retirementDate DateTime          @db.Date
+  /// Commutation %, non-qualifying days, family pensioner, bank … as entered.
+  inputs         Json
+  /// Qualifying service, emoluments, pension, commutation, gratuity, leave encashment, GPF, family pension.
+  working        Json
+  status         PensionCaseStatus @default(DRAFT)
+  ppoNumber      String?
+  ppoKey         String?
+  ppoSha         String?
+  pensionerId    String?
+  benefitsRunId  String?
+  createdById    String
+  createdByName  String
+  approvedAt     DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  employee Employee     @relation(fields: [employeeId], references: [id])
+  noDues   NoDuesItem[]
+
+  @@index([employeeId])
+}
+
+/// PN-07: each section's no-dues for a retirement.
+model NoDuesItem {
+  id        String    @id @default(cuid())
+  tenantId  String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  caseId    String
+  sectionId String
+  /// PENDING, CLEAR or DUES
+  status    String    @default("PENDING")
+  amount    Decimal   @default(0) @db.Decimal(12, 2)
+  note      String?
+  byId      String?
+  byName    String?
+  at        DateTime?
+
+  case PensionCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  section Section @relation(fields: [sectionId], references: [id])
+
+  @@unique([caseId, sectionId])
+}
+
+/// Dated rule tables that are more than one rate — the commutation factors by age (PN-08). Editable through an Admin.
+model RuleTable {
+  id            String   @id @default(cuid())
+  tenantId      String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  code          String
+  effectiveFrom DateTime @db.Date
+  data          Json
+  note          String?
+  createdById   String?
+  createdAt     DateTime @default(now())
+
+  @@unique([tenantId, code, effectiveFrom])
 }

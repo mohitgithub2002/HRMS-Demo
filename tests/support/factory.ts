@@ -8,6 +8,7 @@ import type { Actor } from "@/core/auth/session";
 import { acrossTenants } from "@/core/tenancy/platform";
 import { rawDb } from "@/core/tenancy/raw";
 import { tenantDb } from "@/core/tenancy/scoped";
+import { resolvePerson } from "@/core/auth/person";
 
 let counter = 0;
 const uid = () => `${Date.now().toString(36)}${(counter++).toString(36)}`.toUpperCase();
@@ -64,7 +65,8 @@ export async function actorFor(userId: string): Promise<Actor> {
   const t = await rawDb().tenant.findUniqueOrThrow({ where: { id: u.tenantId } });
   const db = tenantDb(t.id);
   const workflow = await db.setting.findFirst({ where: { key: "workflow" } });
-  const onRolls = Boolean(u.employee) && ["ACTIVE", "SUSPENDED"].includes(u.employee!.status);
+  // The same reading of the person as a real session (core/auth/session.ts), so pensioners and leavers behave alike.
+  const person = await resolvePerson(db, u);
   return {
     tenantId: t.id,
     tenant: { id: t.id, code: t.code, name: t.name, nameHi: t.nameHi, shortName: t.shortName, status: t.status, modules: t.modules, accentColor: null, setupDone: false },
@@ -78,13 +80,22 @@ export async function actorFor(userId: string): Promise<Actor> {
     modules: t.modules,
     simple: (workflow?.value as { mode?: string } | null)?.mode === "simple",
     employeeId: u.employeeId,
-    sectionId: u.employee?.sectionId ?? null,
-    isEmployee: onRolls,
-    isPensioner: false,
-    pensionerId: null,
+    sectionId: person.sectionId ?? (person.isEmployee ? (u.employee?.sectionId ?? null) : null),
+    isEmployee: person.isEmployee,
+    isPensioner: person.isPensioner,
+    pensionerId: person.pensionerId,
     language: "en",
     mustChangePassword: false,
     ip: "127.0.0.1",
     userAgent: "vitest",
   };
+}
+
+/** Installs parts of the GOI starter pack (pay matrix, pay rules, tax rules …) into a test organisation. */
+export async function installPack(boardId: string, keys: string[]) {
+  const { installersFor } = await import("@/platform/packs");
+  const db = tenantDb(boardId);
+  for (const part of installersFor("GOI_7CPC").filter((p) => keys.includes(p.key))) {
+    await db.$transaction((tx) => part.install(tx, { tenantId: boardId, kind: "CANTONMENT_BOARD", modules: ["payroll", "statutory", "pension", "loans", "leave", "attendance"], today: new Date().toISOString().slice(0, 10) }));
+  }
 }

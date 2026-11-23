@@ -4,12 +4,13 @@
  */
 import { holidayInstaller, leaveInstaller } from "./leave-attendance";
 import { matrixInstaller } from "./matrix";
+import { dueRulesInstaller, payRulesInstaller, pensionTablesInstaller, taxRulesInstaller } from "./pay";
 import { structureInstaller } from "./structure";
 import type { PackInstaller, PackKey } from "./types";
 
-export const PACK_VERSION = 1;
+export const PACK_VERSION = 2;
 
-const GOI_7CPC: PackInstaller[] = [structureInstaller, matrixInstaller, leaveInstaller, holidayInstaller];
+const GOI_7CPC: PackInstaller[] = [structureInstaller, matrixInstaller, leaveInstaller, holidayInstaller, payRulesInstaller, taxRulesInstaller, dueRulesInstaller, pensionTablesInstaller];
 
 export function installersFor(pack: PackKey): PackInstaller[] {
   return pack === "GOI_7CPC" ? GOI_7CPC : [];

@@ -126,8 +126,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttrib
 });
 
 /** A checkbox with its label and an optional hint underneath. */
-export function Checkbox({ label, hint, className, ...rest }: React.InputHTMLAttributes<HTMLInputElement> & { label: React.ReactNode; hint?: React.ReactNode }) {
+export function Checkbox({ label, hint, description, className, ...rest }: React.InputHTMLAttributes<HTMLInputElement> & { label: React.ReactNode; hint?: React.ReactNode; description?: React.ReactNode }) {
   const id = useId();
+  hint = hint ?? description;
   return (
     <label htmlFor={id} className={cn("group flex cursor-pointer items-start gap-3 rounded-xl p-1 text-sm", rest.disabled && "cursor-not-allowed opacity-60", className)}>
       <input id={id} type="checkbox" className="peer mt-0.5 size-[1.05rem] shrink-0 cursor-pointer rounded-[0.3rem] border-line-strong accent-brand-600" {...rest} />

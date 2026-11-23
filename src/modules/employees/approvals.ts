@@ -1,4 +1,5 @@
 import "server-only";
+import { applyReinstatement, applySeparation, onSeparationRejected } from "./separation";
 import { chainTask } from "@/core/approvals/engine";
 import { defineApprovalKind } from "@/core/approvals/registry";
 import { audit } from "@/core/audit";
@@ -141,5 +142,39 @@ defineApprovalKind<{ rows: { sectionId: string; postId: string; sanctioned: numb
       oldValue: Object.fromEntries(payload.rows.map((r) => [`${r.sectionId}:${r.postId}`, r.old])),
       newValue: Object.fromEntries(payload.rows.map((r) => [`${r.sectionId}:${r.postId}`, r.sanctioned])),
     });
+  },
+});
+
+/** A suspension or leaving service — a Checker checks, then an Admin approves (as a penalty, §14). */
+defineApprovalKind<{ separationId: string; step?: "approver" }>({
+  kind: "separation.record",
+  requiredPermission: "CHECKER",
+  sensitive: true,
+  async onApprove({ tx, task, payload, actor }) {
+    if (payload.step !== "approver") {
+      await chainTask(tx, task, { requiredPermission: "APPROVER", payload: { ...payload, step: "approver" } });
+      return;
+    }
+    await applySeparation(tx, task, actor, payload.separationId);
+  },
+  async onReject({ tx, payload }) {
+    await onSeparationRejected(tx, payload.separationId);
+  },
+  async onCancel({ tx, payload }) {
+    await onSeparationRejected(tx, payload.separationId);
+  },
+});
+
+/** Reinstatement after a suspension: a Checker, then an Admin. */
+defineApprovalKind<Parameters<typeof applyReinstatement>[3] & { step?: "approver" }>({
+  kind: "separation.reinstate",
+  requiredPermission: "CHECKER",
+  sensitive: true,
+  async onApprove({ tx, task, payload, actor }) {
+    if (payload.step !== "approver") {
+      await chainTask(tx, task, { requiredPermission: "APPROVER", payload: { ...payload, step: "approver" } });
+      return;
+    }
+    await applyReinstatement(tx, task, actor, payload);
   },
 });

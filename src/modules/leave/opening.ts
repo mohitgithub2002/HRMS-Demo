@@ -27,7 +27,7 @@ export async function openingTemplate(actor: Actor): Promise<Buffer> {
     actor.db.employee.findMany({ where: { employeeCode: { not: null }, status: { in: ["ACTIVE", "SUSPENDED"] } }, orderBy: { employeeCode: "asc" }, select: { employeeCode: true, firstName: true, middleName: true, lastName: true } }),
   ]);
   const wb = new ExcelJS.Workbook();
-  wb.creator = "DCB HRMS";
+  wb.creator = "Kosh HR & Payroll";
   const ws = wb.addWorksheet("Opening balances", { views: [{ state: "frozen", ySplit: 1, xSplit: 2 }] });
   ws.columns = [
     { header: "Employee ID", key: "code", width: 14 },

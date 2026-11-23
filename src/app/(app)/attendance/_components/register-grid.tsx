@@ -176,7 +176,7 @@ export function RegisterGrid({
                 <th scope="row" className="sticky left-0 z-[1] max-w-36 border-b border-line bg-surface px-4 py-2 text-left font-normal group-hover:bg-surface-2 sm:max-w-none sm:px-6">
                   <p className="truncate text-sm font-medium text-ink">{name(r)}</p>
                   <p className="truncate text-[0.7rem] text-muted">
-                    {r.employee.code} · {locale === "hi" ? r.employee.postHi : r.employee.post}
+                    {r.employee.code} · {(locale === "hi" && r.employee.postHi) || r.employee.post}
                   </p>
                 </th>
                 {r.days.map((d) => {

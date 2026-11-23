@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 /** Six boxes for a one-time code. Typing, pasting or a phone's SMS autofill (which puts the whole code into the first
  * box — so no maxLength) fill them all; Backspace walks back. */
-export function OtpInput({ value, onChange, disabled, invalid, label }: { value: string; onChange: (v: string) => void; disabled?: boolean; invalid?: boolean; label: string }) {
+export function OtpInput({ value, onChange, disabled, invalid, label, autoFocus }: { value: string; onChange: (v: string) => void; disabled?: boolean; invalid?: boolean; label: string; autoFocus?: boolean }) {
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   const digits = Array.from({ length: 6 }, (_, i) => value[i] ?? "");
   const set = (i: number, d: string) => {
@@ -23,6 +23,7 @@ export function OtpInput({ value, onChange, disabled, invalid, label }: { value:
           }}
           value={d}
           disabled={disabled}
+          autoFocus={autoFocus && i === 0}
           inputMode="numeric"
           autoComplete={i === 0 ? "one-time-code" : "off"}
           aria-label={`${label} ${i + 1}`}

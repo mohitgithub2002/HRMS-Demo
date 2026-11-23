@@ -33,3 +33,10 @@ export async function updateTenantProfile(tenantId: string, data: { name: string
 export async function setSetupCompleted(tenantId: string, done: boolean) {
   return rawDb().tenant.update({ where: { id: tenantId }, data: { setupCompletedAt: done ? new Date() : null } });
 }
+
+/** The organisation of a tenant client, as documents print it (letterheads, PPO numbers, bank narrations). */
+export async function orgOf(db: import("./scoped").DbLike) {
+  const { tenantOf } = await import("./scoped");
+  const t = await getTenantProfile(tenantOf(db));
+  return { ...t, nameHi: t.nameHi || t.name };
+}

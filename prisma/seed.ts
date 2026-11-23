@@ -14,7 +14,10 @@ import { DEMO_PASSWORD, DEMO_TENANTS } from "./seed-demo";
 import { DEMO_STAFF, SMC_STAFF, seedEmployees } from "./seed-employees";
 import { DEMO_DEVICE, seedAttendance } from "./seed-attendance";
 import { syncDevices } from "@/core/tenancy/devices";
-import { todayIST } from "@/core/dates";
+import { shiftMonth, todayIST } from "@/core/dates";
+import { seal } from "@/core/crypto";
+import { seedDemoLeaver, seedPayrollDemo } from "./seed-payroll";
+import { seedPensionDemo } from "./seed-pension";
 import { installersFor } from "@/platform/packs";
 
 async function seedOwner() {
@@ -52,11 +55,39 @@ async function topUpPack(tenantId: string, modules: string[]) {
     "pay-matrix": async () => (await db.payMatrix.count()) === 0,
     "leave-rules": async () => (await db.leaveType.count()) === 0,
     "national-holidays": async () => (await db.holiday.count()) === 0,
+    "pay-rules": async () => (await db.payHead.count()) === 0,
+    "tax-rules": async () => (await db.taxRule.count()) === 0,
+    "due-rules": async () => (await db.dueRule.count()) === 0,
+    "pension-tables": async () => (await db.ruleTable.count({ where: { code: "COMMUTATION_FACTORS" } })) === 0,
   };
   for (const part of installersFor("GOI_7CPC")) {
     if (!empty[part.key] || (part.module && !modules.includes(part.module)) || !(await empty[part.key]())) continue;
     await db.$transaction((tx) => part.install(tx, { tenantId, kind: "CANTONMENT_BOARD", modules: modules as never, today: todayIST() }));
   }
+}
+
+/** Payroll, tax and pension history for the DEMO organisation: two closed months, pensioners, a leaver. */
+async function seedDemoPay(tenantId: string) {
+  const db = tenantDb(tenantId);
+  const userOf = async (loginId: string) => {
+    const u = await db.user.findFirstOrThrow({ where: { loginId } });
+    return { id: u.id, name: u.name };
+  };
+  const employees = await db.employee.findMany({ where: { employeeCode: { not: null } }, select: { id: true, employeeCode: true } });
+  const people = new Map(employees.map((e) => [e.employeeCode!, e.id]));
+  const [payroll, checker, signer] = await Promise.all([userOf("ACC01"), userOf("CHK01"), userOf("ADMIN")]);
+  await seedPayrollDemo(db, people, { payroll, checker, signer });
+  const [sections, posts] = await Promise.all([db.section.findMany(), db.post.findMany()]);
+  const thisMonth = todayIST().slice(0, 7);
+  await seedPensionDemo(db, {
+    seal: (kind, value) => seal(tenantId, kind, value),
+    sections: new Map(sections.map((s) => [s.code, s.id])),
+    posts: new Map(posts.map((p) => [p.code, { id: p.id }])),
+    months: [shiftMonth(thisMonth, -2), shiftMonth(thisMonth, -1)],
+    users: { pension: payroll, checker, signer },
+    passwordHash: await hashPassword(DEMO_PASSWORD),
+  });
+  await seedDemoLeaver(db);
 }
 
 /** Punches, a locked month, requests and leave for the DEMO organisation, from the original demo data. */
@@ -93,7 +124,10 @@ async function main() {
     const db = tenantDb(tenant.id);
     await topUpPack(tenant.id, tenant.modules);
     const people = await seedEmployees(db, tenant.id, tenant.code, staff, demo.code === "DEMO" ? 1 : 2, DEMO_PASSWORD);
-    if (demo.code === "DEMO") await seedDemoAttendance(tenant.id);
+    if (demo.code === "DEMO") {
+      await seedDemoAttendance(tenant.id);
+      await seedDemoPay(tenant.id);
+    }
     console.log(`${created ? "Created" : "Kept"} ${tenant.name} (${tenant.code})${people ? ` with ${people} employees` : ""}`);
   }
   console.log(`Demo password for every demo login: ${DEMO_PASSWORD}`);

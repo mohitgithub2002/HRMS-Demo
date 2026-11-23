@@ -1,0 +1,322 @@
+import "server-only";
+import ExcelJS from "exceljs";
+import { audit } from "@/core/audit";
+import { afterResponse } from "@/core/background";
+import { canAll } from "@/core/auth/access";
+import type { Actor } from "@/core/auth/session";
+import { decrypt } from "@/core/crypto";
+import { parseCsv, toCsv } from "@/core/csv";
+import { tenantOf, type DbLike, type Tx } from "@/core/tenancy/scoped";
+import { formatMonth, todayIST } from "@/core/dates";
+import { badRequest, conflict, forbidden, notFound } from "@/core/errors";
+import { createOutgoingFile } from "@/core/files/outgoing";
+import { onFileReleased } from "@/core/files/hooks";
+import { formatINR } from "@/core/money";
+import { emit } from "@/core/outbox";
+import { storeBytes, sniff } from "@/core/storage";
+import { fullName } from "@/modules/employees/present";
+import { getSetting } from "@/modules/settings/store";
+import { bankTable, buildBankFile, parseReturnRows, type BankRow, type BankTable } from "./bank-formats";
+import type { PayLine } from "./engine";
+import { fnOf, titleOf } from "./compute";
+import { sendPayslipNotices } from "./payslips";
+
+/**
+ * Stage 5 of S-40 — Pay (PRD §8 flow steps 6–7): the bank file goes through the file registry (preview → an Admin
+ * releases it → download), the bank's return file marks failed credits, failed credits are re-paid in a new bank
+ * file, and the month is closed with the accounting summary for e-Chhawani (PR-14).
+ */
+
+const num = (v: { toString(): string } | null | undefined) => (v === null || v === undefined ? 0 : Number(v));
+const mask = (account: string) => `••••${account.slice(-4)}`;
+
+/** Loads a bill the actor may work on: salary bills need payroll rights, pension bills pension rights (§14). */
+async function loadRun(actor: Actor, runId: string, tx: DbLike = actor.db) {
+  const run = await tx.payrollRun.findFirst({ where: { id: runId } });
+  if (!run) throw notFound();
+  if (!canAll(actor, fnOf(run.payGroup), "create")) throw forbidden();
+  return run;
+}
+
+/**
+ * Bank rows for the given payslips, from the bank details on the record now (an approved change counts). A pension is
+ * paid to the pensioner's own account and listed by PPO number.
+ */
+async function bankRows(slipIds: string[], month: string, tx: DbLike): Promise<BankRow[]> {
+  const slips = await tx.payslip.findMany({
+    where: { id: { in: slipIds } },
+    include: { employee: { select: { employeeCode: true, firstName: true, middleName: true, lastName: true, bankAccountEnc: true, ifsc: true } } },
+  });
+  const pensioners = await tx.pensioner.findMany({ where: { id: { in: slips.flatMap((s) => (s.pensionerId ? [s.pensionerId] : [])) } } });
+  const pensionerBy = new Map(pensioners.map((p) => [p.id, p]));
+  const rows: BankRow[] = [];
+  for (const s of slips) {
+    const p = s.pensionerId ? pensionerBy.get(s.pensionerId) : undefined;
+    // Benefits on a death with no pension to pay go to the family member's account given on the case.
+    const payTo = (s.detail as { payTo?: { name: string; accountEnc: string; ifsc: string } } | null)?.payTo;
+    const code = p ? p.ppoNumber : (s.employee.employeeCode ?? "");
+    const enc = payTo ? payTo.accountEnc : p ? p.bankAccountEnc : s.employee.bankAccountEnc;
+    const ifsc = payTo ? payTo.ifsc : p ? p.ifsc : s.employee.ifsc;
+    if (!enc || !ifsc) throw badRequest("payroll.errors.noBankFor", undefined, { code });
+    rows.push({
+      employeeCode: code,
+      name: payTo ? payTo.name : p ? p.payeeName : fullName(s.employee),
+      account: decrypt(tenantOf(tx), enc),
+      ifsc,
+      amount: num(s.net),
+      narration: `${p ? "PENSION" : "SALARY"} ${month.replace("-", "")} ${code}`,
+    });
+  }
+  return rows.sort((a, b) => a.employeeCode.localeCompare(b.employeeCode));
+}
+
+/** The code each slip of a bill is listed by in its bank file and the bank's return file. */
+async function slipCodes(db: DbLike, runId: string) {
+  const slips = await db.payslip.findMany({ where: { runId, status: "INCLUDED" }, include: { employee: { select: { employeeCode: true } } } });
+  const ppo = new Map((await db.pensioner.findMany({ where: { id: { in: slips.flatMap((s) => (s.pensionerId ? [s.pensionerId] : [])) } }, select: { id: true, ppoNumber: true } })).map((p) => [p.id, p.ppoNumber]));
+  return { slips, byCode: new Map(slips.map((s) => [s.pensionerId ? ppo.get(s.pensionerId) : s.employee.employeeCode, s])) };
+}
+
+/** The bank's columns as an Excel sheet: account numbers kept as text (no lost zeros), amounts as numbers. */
+export async function bankXlsx(table: BankTable): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Salary");
+  ws.addRow(table.header).font = { bold: true };
+  const isAmount = table.header.map((h) => /amount/i.test(h));
+  for (const r of table.rows) ws.addRow(r.map((v, i) => (isAmount[i] ? Number(v) : String(v))));
+  table.header.forEach((h, i) => {
+    const col = ws.getColumn(i + 1);
+    col.width = Math.min(40, Math.max(h.length + 2, ...table.rows.map((r) => String(r[i]).length + 2)));
+    col.numFmt = isAmount[i] ? "0.00" : "@";
+  });
+  ws.views = [{ state: "frozen", ySplit: 1 }];
+  return Buffer.from(await wb.xlsx.writeBuffer());
+}
+
+async function bankFileFor(actor: Actor, tx: Tx, run: { id: string; month: string; payGroup: string }, rows: BankRow[], kind: "bank.salary" | "bank.repay") {
+  const bank = await getSetting(tx, "bank");
+  const opts = { debitIfsc: bank.ifsc, valueDate: todayIST() };
+  const text = buildBankFile(bank.format, rows, opts);
+  const out =
+    bank.fileType === "XLSX"
+      ? { ext: "xlsx" as const, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: await bankXlsx(bankTable(bank.format, rows, opts)) }
+      : { ext: text.ext, mimeType: text.mimeType, buffer: Buffer.from(text.content, "utf8") };
+  const total = rows.reduce((s, r) => s + r.amount, 0);
+  const repay = kind === "bank.repay";
+  const title = titleOf(run);
+  return createOutgoingFile(
+    actor,
+    {
+      kind,
+      period: run.month,
+      fileName: `${repay ? "repay" : run.payGroup === "PENSION" ? "pension" : "salary"}-${run.month}-${run.payGroup.toLowerCase()}${repay ? `-${Date.now().toString(36)}` : ""}.${out.ext}`,
+      ext: out.ext,
+      mimeType: out.mimeType,
+      buffer: out.buffer,
+      preview: {
+        columns: [run.payGroup === "PENSION" ? "PPO no." : "Employee ID", "Name", "Account", "IFSC", "Amount"],
+        rows: rows.slice(0, 25).map((r) => [r.employeeCode, r.name, mask(r.account), r.ifsc, r.amount.toFixed(2)]),
+        totalRows: rows.length,
+        totals: { "Total amount": formatINR(total, { decimals: true }), Format: `${bank.format.replace(/_/g, " ")} · ${bank.fileType === "XLSX" ? "Excel" : out.ext.toUpperCase()}` },
+      },
+      title: `${repay ? "Re-pay bank file" : "Bank file"}: ${title} — ${rows.length} credits, ${formatINR(total)}`,
+      titleHi: `${repay ? "पुनः भुगतान बैंक फ़ाइल" : "बैंक फ़ाइल"}: ${titleOf(run, "hi")} — ${rows.length} भुगतान, ${formatINR(total)}`,
+      link: `/payroll/${run.id}`,
+    },
+    tx,
+  );
+}
+
+/** PR-12: the salary bank file for everyone paid in the run. */
+export async function buildSalaryBankFile(actor: Actor, runId: string) {
+  return actor.db.$transaction(async (tx) => {
+    const run = await loadRun(actor, runId, tx);
+    if (run.status !== "APPROVED") throw conflict("payroll.errors.wrongStage");
+    if (run.bankFileId) {
+      const existing = await tx.fileRecord.findUnique({ where: { id: run.bankFileId } });
+      if (existing && existing.status !== "REJECTED") throw conflict("payroll.errors.bankFileExists");
+    }
+    const slips = await tx.payslip.findMany({ where: { runId, status: "INCLUDED", net: { gt: 0 } }, select: { id: true } });
+    const rows = await bankRows(slips.map((s) => s.id), run.month, tx);
+    const file = await bankFileFor(actor, tx, run, rows, "bank.salary");
+    await tx.payrollRun.update({ where: { id: runId }, data: { bankFileId: file.id } });
+    return file;
+  });
+}
+
+/** The bank's return file: every credit not listed as failed is marked credited. */
+export async function importReturnFile(actor: Actor, runId: string, buffer: Buffer, fileName: string) {
+  const run = await loadRun(actor, runId);
+  if (run.status !== "PAID" || run.returnAt) throw conflict("payroll.errors.wrongStage");
+  const table = await readTable(buffer);
+  const parsed = parseReturnRows(table);
+  if (parsed.errors.length) throw badRequest("payroll.errors.returnFile", undefined, { lines: parsed.errors.map((e) => e.line).join(", ") });
+  const { slips, byCode } = await slipCodes(actor.db, runId);
+  const bad = parsed.rows.filter((r) => {
+    const s = byCode.get(r.employeeCode);
+    return !s || Math.abs(num(s.net) - r.amount) > 0.5;
+  });
+  if (bad.length) throw badRequest("payroll.errors.returnMismatch", undefined, { lines: bad.map((r) => r.line).join(", ") });
+  const stored = await storeBytes(actor.db, buffer, sniff(buffer) === "xlsx" ? "xlsx" : "csv");
+  const failed = parsed.rows.filter((r) => r.failed);
+  return actor.db.$transaction(async (tx) => {
+    const fresh = await loadRun(actor, runId, tx);
+    if (fresh.status !== "PAID" || fresh.returnAt) throw conflict("payroll.errors.wrongStage");
+    await tx.payslip.updateMany({ where: { runId, status: "INCLUDED" }, data: { creditStatus: "CREDITED", creditNote: null } });
+    for (const r of failed) {
+      await tx.payslip.update({ where: { id: byCode.get(r.employeeCode)!.id }, data: { creditStatus: "FAILED", creditNote: r.reason || null } });
+    }
+    await tx.fileRecord.create({
+      data: {
+        direction: "INCOMING",
+        kind: "bank.return",
+        period: run.month,
+        fileName: fileName.slice(0, 200),
+        mimeType: sniff(buffer) === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "text/csv",
+        size: stored.size,
+        sha256: stored.sha256,
+        storageKey: stored.key,
+        status: "VALIDATED",
+        meta: { runId, failed: failed.length },
+        createdById: actor.userId,
+        createdByName: actor.name,
+      },
+    });
+    await tx.payrollRun.update({ where: { id: runId }, data: { returnAt: new Date() } });
+    await audit(tx, actor, { action: "IMPORT", entityType: "PayrollRun", entityId: runId, summary: `Read the bank return file ${fileName}: ${failed.length} failed credit(s)`, newValue: { failed: failed.map((r) => r.employeeCode), sha256: stored.sha256 } });
+    return { failed: failed.length, credited: slips.length - failed.length };
+  });
+}
+
+/** No return file from the bank — every credit went through. */
+export async function markAllCredited(actor: Actor, runId: string) {
+  return actor.db.$transaction(async (tx) => {
+    const run = await loadRun(actor, runId, tx);
+    if (run.status !== "PAID" || run.returnAt) throw conflict("payroll.errors.wrongStage");
+    const res = await tx.payslip.updateMany({ where: { runId, status: "INCLUDED" }, data: { creditStatus: "CREDITED" } });
+    await tx.payrollRun.update({ where: { id: runId }, data: { returnAt: new Date() } });
+    await audit(tx, actor, { action: "IMPORT", entityType: "PayrollRun", entityId: runId, summary: `Recorded that all ${res.count} credits went through` });
+    return { failed: 0, credited: res.count };
+  });
+}
+
+/** PR-12: a new bank file for failed credits (after the bank details are corrected through the Checker). */
+export async function buildRepayFile(actor: Actor, runId: string) {
+  return actor.db.$transaction(async (tx) => {
+    const run = await loadRun(actor, runId, tx);
+    if (run.status !== "PAID") throw conflict("payroll.errors.wrongStage");
+    const slips = await tx.payslip.findMany({ where: { runId, creditStatus: "FAILED", repayFileId: null }, select: { id: true } });
+    if (!slips.length) throw badRequest("payroll.errors.nothingToRepay");
+    const rows = await bankRows(slips.map((s) => s.id), run.month, tx);
+    const file = await bankFileFor(actor, tx, run, rows, "bank.repay");
+    await tx.payslip.updateMany({ where: { id: { in: slips.map((s) => s.id) } }, data: { repayFileId: file.id } });
+    return file;
+  });
+}
+
+/** PR-14: the month's pay charged to each account head — expenditure (debit) and recoveries and payables (credit). */
+export async function accountingSummary(tx: DbLike, runId: string) {
+  const slips = await tx.payslip.findMany({ where: { runId, status: "INCLUDED" }, select: { lines: true, net: true } });
+  const heads = new Map<string, { accountHead: string; code: string; name: string; kind: string; amount: number }>();
+  let net = 0;
+  for (const s of slips) {
+    net += num(s.net);
+    for (const l of s.lines as unknown as PayLine[]) {
+      const h = heads.get(l.code) ?? { accountHead: l.accountHead, code: l.code, name: l.name, kind: l.kind, amount: 0 };
+      h.amount += l.amount;
+      heads.set(l.code, h);
+    }
+  }
+  const rows: { accountHead: string; code: string; name: string; debit: number; credit: number }[] = [];
+  const list = [...heads.values()];
+  for (const h of list.filter((x) => x.kind === "EARNING")) rows.push({ accountHead: h.accountHead, code: h.code, name: h.name, debit: h.amount, credit: 0 });
+  for (const h of list.filter((x) => x.kind === "EMPLOYER")) rows.push({ accountHead: h.accountHead, code: h.code, name: h.name, debit: h.amount, credit: 0 });
+  for (const h of list.filter((x) => x.kind === "DEDUCTION")) rows.push({ accountHead: h.accountHead, code: h.code, name: h.name, debit: 0, credit: h.amount });
+  const employer = list.filter((x) => x.kind === "EMPLOYER").reduce((s, h) => s + h.amount, 0);
+  if (employer) rows.push({ accountHead: "L-2 Employer contributions payable", code: "ER_PAYABLE", name: "Employer contributions payable", debit: 0, credit: employer });
+  rows.push({ accountHead: "L-1 Salary payable through bank", code: "NET", name: "Net pay credited to bank", debit: 0, credit: net });
+  return rows;
+}
+
+/** Closes the month: every failed credit has a re-pay file; the accounting summary goes to the file registry. */
+export async function closeRun(actor: Actor, runId: string) {
+  return actor.db.$transaction(async (tx) => {
+    const run = await loadRun(actor, runId, tx);
+    if (run.status !== "PAID" || !run.returnAt) throw conflict("payroll.errors.wrongStage");
+    const failed = await tx.payslip.count({ where: { runId, creditStatus: "FAILED", repayFileId: null } });
+    if (failed) throw badRequest("payroll.errors.failedOpen", undefined, { count: failed });
+    const rows = await accountingSummary(tx, runId);
+    const debit = rows.reduce((s, r) => s + r.debit, 0);
+    const credit = rows.reduce((s, r) => s + r.credit, 0);
+    const csv = toCsv(
+      ["Month", "Pay group", "Account head", "Head code", "Head", "Debit", "Credit"],
+      rows.map((r) => [run.month, run.payGroup, r.accountHead, r.code, r.name, r.debit ? r.debit.toFixed(2) : "", r.credit ? r.credit.toFixed(2) : ""]),
+    );
+    const file = await createOutgoingFile(
+      actor,
+      {
+        kind: "accounts.summary",
+        period: run.month,
+        fileName: `accounts-${run.month}-${run.payGroup.toLowerCase()}.csv`,
+        ext: "csv",
+        mimeType: "text/csv",
+        buffer: Buffer.from(csv, "utf8"),
+        preview: {
+          columns: ["Account head", "Head", "Debit", "Credit"],
+          rows: rows.map((r) => [r.accountHead, r.name, r.debit ? r.debit.toFixed(2) : "", r.credit ? r.credit.toFixed(2) : ""]),
+          totalRows: rows.length,
+          totals: { Debit: formatINR(debit), Credit: formatINR(credit) },
+        },
+        title: `Accounting summary: ${titleOf(run)}`,
+        titleHi: `लेखा सारांश: ${titleOf(run, "hi")}`,
+        link: `/payroll/${run.id}`,
+      },
+      tx,
+    );
+    await tx.payrollRun.update({ where: { id: runId }, data: { status: "CLOSED", closedAt: new Date(), summaryFileId: file.id } });
+    await audit(tx, actor, { action: "CLOSE", entityType: "PayrollRun", entityId: runId, summary: `Closed ${titleOf(run)} (${formatMonth(run.month)})` });
+    await emit(tx, "payroll.closed", { type: "PayrollRun", id: runId }, { month: run.month, payGroup: run.payGroup });
+    return file;
+  });
+}
+
+/** The first sheet of an Excel file, or a CSV, as rows of text. */
+export async function readTable(buffer: Buffer): Promise<string[][]> {
+  if (sniff(buffer) === "xlsx") {
+    const wb = new ExcelJS.Workbook();
+    try {
+      await wb.xlsx.load(buffer as unknown as ArrayBuffer);
+    } catch {
+      throw badRequest("employees.errors.notExcel");
+    }
+    const rows: string[][] = [];
+    wb.worksheets[0]?.eachRow({ includeEmpty: false }, (row) => {
+      const cells: string[] = [];
+      for (let c = 1; c <= row.cellCount; c++) cells.push(String(row.getCell(c).text ?? ""));
+      rows.push(cells);
+    });
+    return rows;
+  }
+  const text = buffer.toString("utf8");
+  if (text.includes("\u0000")) throw badRequest("payroll.errors.returnFile", undefined, { lines: "1" });
+  return parseCsv(text);
+}
+
+// ─── Release hooks: the Admin releasing a bank file ──────────────────────────
+
+/** PR-13 boundary: once the salary bank file is released the payroll is paid and can no longer be reopened. */
+onFileReleased("bank.salary", async (tx, file, actor, afterCommit) => {
+  const run = await tx.payrollRun.findFirst({ where: { bankFileId: file.id } });
+  if (!run || run.status !== "APPROVED") return;
+  await tx.payrollRun.update({ where: { id: run.id }, data: { status: "PAID", paidAt: new Date() } });
+  await audit(tx, actor, { action: "PAY", entityType: "PayrollRun", entityId: run.id, summary: `Bank file released — ${titleOf(run)} is paid` });
+  await emit(tx, "payroll.paid", { type: "PayrollRun", id: run.id }, { month: run.month, payGroup: run.payGroup });
+  // SL-04: credit day — payslip notices go out once the release is saved. In the simple way of working the bill
+  // can still be taken back until the month is finished, so the notices go out then (payroll/simple.ts).
+  if (actor.simple) return;
+  afterCommit(() => afterResponse("payroll", () => sendPayslipNotices(actor.db, run.id)));
+});
+
+onFileReleased("bank.repay", async (tx, file) => {
+  await tx.payslip.updateMany({ where: { repayFileId: file.id, creditStatus: "FAILED" }, data: { creditStatus: "REPAID" } });
+});

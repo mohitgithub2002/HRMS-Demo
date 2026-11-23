@@ -1,13 +1,13 @@
 "use client";
 
-import { Banknote, Clock, FileText, Landmark, ShieldCheck, Workflow } from "lucide-react";
+import { Banknote, Clock, FileText, Landmark, Mail, MessageSquareText, ShieldCheck, Workflow } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardFooter, CardHeader } from "@/components/ui/card";
 import { Input, Select, Switch, Textarea } from "@/components/ui/field";
 import { useT } from "@/core/i18n/client";
 import type { AllSettings } from "@/modules/settings/store";
-import type { SettingKey } from "@/modules/settings/schema";
+import { BANK_FORMATS, type SettingKey } from "@/modules/settings/schema";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/utils";
 import { WeekdayPicker } from "../weekday-picker";
@@ -19,6 +19,8 @@ export function SettingsForms({ initial }: { initial: AllSettings }) {
   const [s, setS] = useState(initial);
   const [saving, setSaving] = useState<SettingKey | null>(null);
   const patch = <K extends SettingKey>(k: K, v: Partial<AllSettings[K]>) => setS((x) => ({ ...x, [k]: { ...x[k], ...v } }));
+  const st = s.statutory;
+  const setSt = (v: Partial<AllSettings["statutory"]>) => patch("statutory", v);
   const save = async (k: SettingKey) => {
     setSaving(k);
     await run(`/api/v1/settings/${k}`, s[k], { method: "PUT" });
@@ -82,31 +84,95 @@ export function SettingsForms({ initial }: { initial: AllSettings }) {
         {footer("attendance")}
       </Card>
 
-      <Card id="statutoryIds" className="scroll-mt-24">
-        <CardHeader icon={<Landmark />} title={t("settings.statutoryIds.title")} />
-        <CardBody className="grid gap-4 sm:grid-cols-2">
-          {(["tan", "pan", "ddoCode", "ddoRegNo", "pfCode", "esicCode", "ptState"] as const).map((k) => (
-            <Input key={k} label={t(`settings.statutoryIds.${k}`)} value={s.statutoryIds[k]} onChange={(e) => patch("statutoryIds", { [k]: k === "ptState" ? e.target.value : e.target.value.toUpperCase() })} error={fields[k]} />
-          ))}
+      <Card id="statutory" className="xl:col-span-2 scroll-mt-24">
+        <CardHeader icon={<Landmark />} title={t("settings.statutory.title")} description={t("settings.statutory.hint")} />
+        <CardBody className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Input label={t("settings.statutory.deductorName")} value={st.deductorName} maxLength={75} onChange={(e) => setSt({ deductorName: e.target.value })} error={fields.deductorName} />
+          <Input label={t("settings.statutory.tan")} value={st.tan} maxLength={10} onChange={(e) => setSt({ tan: e.target.value.toUpperCase() })} error={fields.tan} />
+          <Input label={t("settings.statutory.pan")} value={st.pan} maxLength={10} onChange={(e) => setSt({ pan: e.target.value.toUpperCase() })} error={fields.pan} />
+          <Input containerClassName="sm:col-span-2 lg:col-span-3" label={t("settings.statutory.address")} value={st.address} maxLength={200} onChange={(e) => setSt({ address: e.target.value })} error={fields.address} />
+          <Input label={t("settings.statutory.responsibleName")} value={st.responsibleName} maxLength={75} onChange={(e) => setSt({ responsibleName: e.target.value })} />
+          <Input label={t("settings.statutory.responsibleDesignation")} value={st.responsibleDesignation} maxLength={50} onChange={(e) => setSt({ responsibleDesignation: e.target.value })} />
+          <Input label={t("settings.statutory.ddoCode")} value={st.ddoCode} maxLength={20} onChange={(e) => setSt({ ddoCode: e.target.value.toUpperCase() })} />
+          <Input label={t("settings.statutory.ddoRegNo")} value={st.ddoRegNo} maxLength={20} onChange={(e) => setSt({ ddoRegNo: e.target.value.toUpperCase() })} />
+          <Input label={t("settings.statutory.epfCode")} value={st.epfCode} maxLength={30} onChange={(e) => setSt({ epfCode: e.target.value.toUpperCase() })} />
+          <Input label={t("settings.statutory.esicCode")} value={st.esicCode} maxLength={30} onChange={(e) => setSt({ esicCode: e.target.value })} />
+          <div className="space-y-3 sm:col-span-2 lg:col-span-3">
+            <Switch label={t("settings.statutory.metroHra")} hint={t("settings.statutory.metroHraHint")} checked={st.metroHra} onChange={(v) => setSt({ metroHra: v })} />
+            <Switch label={t("settings.statutory.professionalTax")} hint={t("settings.statutory.professionalTaxHint")} checked={st.professionalTax} onChange={(v) => setSt({ professionalTax: v })} />
+          </div>
+          {st.professionalTax && (
+            <div className="space-y-2 sm:col-span-2 lg:col-span-3">
+              <p className="text-[0.8125rem] font-medium text-ink-2">{t("settings.statutory.ptSlabs")}</p>
+              {st.ptSlabs.map((slab, i) => (
+                <div key={i} className="flex items-end gap-2">
+                  <Input containerClassName="flex-1" label={t("settings.statutory.ptUpTo")} inputMode="numeric" value={slab.upTo ?? ""} onChange={(e) => setSt({ ptSlabs: st.ptSlabs.map((x, j) => (j === i ? { ...x, upTo: e.target.value === "" ? null : Number(e.target.value.replace(/\D/g, "")) } : x)) })} />
+                  <Input containerClassName="flex-1" label={t("settings.statutory.ptAmount")} inputMode="numeric" value={slab.amount} onChange={(e) => setSt({ ptSlabs: st.ptSlabs.map((x, j) => (j === i ? { ...x, amount: Number(e.target.value.replace(/\D/g, "")) } : x)) })} />
+                  <Button variant="ghost" onClick={() => setSt({ ptSlabs: st.ptSlabs.filter((_, j) => j !== i) })}>{t("common.remove")}</Button>
+                </div>
+              ))}
+              {st.ptSlabs.length < 10 && <Button size="sm" onClick={() => setSt({ ptSlabs: [...st.ptSlabs, { upTo: null, amount: 0 }] })}>{t("settings.statutory.addSlab")}</Button>}
+            </div>
+          )}
         </CardBody>
-        {footer("statutoryIds")}
+        {footer("statutory")}
       </Card>
 
       <Card id="bank" className="scroll-mt-24">
         <CardHeader icon={<Banknote />} title={t("settings.bank.title")} />
         <CardBody className="grid gap-4 sm:grid-cols-2">
-          <Input containerClassName="sm:col-span-2" label={t("settings.bank.bankName")} value={s.bank.bankName} onChange={(e) => patch("bank", { bankName: e.target.value })} />
-          <Input label={t("settings.bank.accountNumber")} inputMode="numeric" value={s.bank.accountNumber} onChange={(e) => patch("bank", { accountNumber: e.target.value.replace(/\s/g, "") })} />
-          <Input label={t("settings.bank.ifsc")} value={s.bank.ifsc} onChange={(e) => patch("bank", { ifsc: e.target.value.toUpperCase().slice(0, 11) })} />
-          <Select containerClassName="sm:col-span-2" label={t("settings.bank.format")} value={s.bank.format} onChange={(e) => patch("bank", { format: e.target.value as AllSettings["bank"]["format"] })}>
-            <option value="GENERIC">Generic (CSV)</option>
-            <option value="SBI_CMP">SBI CMP</option>
-            <option value="PNB">PNB</option>
-            <option value="BOB">Bank of Baroda</option>
-            <option value="CANARA">Canara Bank</option>
+          <Input containerClassName="sm:col-span-2" label={t("settings.bank.bankName")} value={s.bank.name} onChange={(e) => patch("bank", { name: e.target.value })} />
+          <Input label={t("settings.bank.debitAccountLast4")} hint={t("settings.bank.debitAccountHint")} inputMode="numeric" maxLength={4} value={s.bank.debitAccountLast4} onChange={(e) => patch("bank", { debitAccountLast4: e.target.value.replace(/\D/g, "").slice(0, 4) })} error={fields.debitAccountLast4} />
+          <Input label={t("settings.bank.ifsc")} value={s.bank.ifsc} onChange={(e) => patch("bank", { ifsc: e.target.value.toUpperCase().slice(0, 11) })} error={fields.ifsc} />
+          <Select label={t("settings.bank.format")} value={s.bank.format} onChange={(e) => patch("bank", { format: e.target.value as AllSettings["bank"]["format"] })}>
+            {BANK_FORMATS.map((f) => (
+              <option key={f} value={f}>{t(`settings.bank.formats.${f}`)}</option>
+            ))}
+          </Select>
+          <Select label={t("settings.bank.fileType")} value={s.bank.fileType} onChange={(e) => patch("bank", { fileType: e.target.value as AllSettings["bank"]["fileType"] })}>
+            <option value="XLSX">{t("settings.bank.xlsx")}</option>
+            <option value="TEXT">{t("settings.bank.text")}</option>
           </Select>
         </CardBody>
         {footer("bank")}
+      </Card>
+
+      <Card id="sms" className="scroll-mt-24">
+        <CardHeader icon={<MessageSquareText />} title={t("settings.sms.title")} description={t("settings.sms.hint")} />
+        <CardBody className="grid gap-4 sm:grid-cols-2">
+          <Select label={t("settings.sms.provider")} value={s.sms.provider} onChange={(e) => patch("sms", { provider: e.target.value as "console" | "http" })}>
+            <option value="console">{t("settings.sms.console")}</option>
+            <option value="http">{t("settings.sms.http")}</option>
+          </Select>
+          <Select label={t("settings.sms.method")} value={s.sms.method} onChange={(e) => patch("sms", { method: e.target.value as "GET" | "POST" })}>
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+          </Select>
+          <Input containerClassName="sm:col-span-2" label={t("settings.sms.url")} hint={t("settings.sms.urlHint")} value={s.sms.url} onChange={(e) => patch("sms", { url: e.target.value })} error={fields.url} />
+          <Input label={t("settings.sms.senderId")} maxLength={6} value={s.sms.senderId} onChange={(e) => patch("sms", { senderId: e.target.value.toUpperCase() })} />
+          <Input label={t("settings.sms.dltEntityId")} value={s.sms.dltEntityId} onChange={(e) => patch("sms", { dltEntityId: e.target.value })} />
+          <Input containerClassName="sm:col-span-2" label={t("settings.sms.apiKeyEnv")} hint={t("settings.sms.apiKeyEnvHint")} value={s.sms.apiKeyEnv} onChange={(e) => patch("sms", { apiKeyEnv: e.target.value.toUpperCase() })} error={fields.apiKeyEnv} />
+          {(["otp", "approveOtp", "payslip", "pensionSlip", "lifeCertificate", "welcome", "alert"] as const).map((k) => (
+            <Input key={k} label={t(`settings.sms.template.${k}`)} value={s.sms.templates[k]} onChange={(e) => patch("sms", { templates: { ...s.sms.templates, [k]: e.target.value.trim() } })} />
+          ))}
+        </CardBody>
+        {footer("sms")}
+      </Card>
+
+      <Card id="email" className="scroll-mt-24">
+        <CardHeader icon={<Mail />} title={t("settings.email.title")} description={t("settings.email.hint")} />
+        <CardBody className="grid gap-4 sm:grid-cols-2">
+          <Input label={t("settings.email.fromName")} value={s.email.fromName} onChange={(e) => patch("email", { fromName: e.target.value })} />
+          <Input type="email" label={t("settings.email.fromAddress")} value={s.email.fromAddress} onChange={(e) => patch("email", { fromAddress: e.target.value.trim() })} error={fields.fromAddress} />
+          <Input label={t("settings.email.smtpHost")} value={s.email.smtpHost} onChange={(e) => patch("email", { smtpHost: e.target.value.trim() })} />
+          <Input type="number" label={t("settings.email.smtpPort")} value={s.email.smtpPort} onChange={(e) => patch("email", { smtpPort: Number(e.target.value) })} />
+          <Input label={t("settings.email.userEnv")} value={s.email.userEnv} onChange={(e) => patch("email", { userEnv: e.target.value.toUpperCase() })} error={fields.userEnv} />
+          <Input label={t("settings.email.passwordEnv")} value={s.email.passwordEnv} onChange={(e) => patch("email", { passwordEnv: e.target.value.toUpperCase() })} error={fields.passwordEnv} />
+          <div className="sm:col-span-2">
+            <Switch label={t("settings.email.secure")} checked={s.email.secure} onChange={(v) => patch("email", { secure: v })} />
+          </div>
+        </CardBody>
+        {footer("email")}
       </Card>
 
       <Card id="payslip" className="scroll-mt-24">

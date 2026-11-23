@@ -72,7 +72,7 @@ export async function leaveLedgerPdf(actor: Actor, employeeId: string) {
     </div>
     ${sections || "<p>No entries yet. / अभी कोई प्रविष्टि नहीं।</p>"}
     <div class="sign">Head Clerk / Office Superintendent<br><span lang="hi">प्रधान लिपिक / कार्यालय अधीक्षक</span></div>
-    <footer><span>Printed ${formatDateTime(new Date())} by ${esc(actor.name)}</span><span>DCB HRMS</span></footer>
+    <footer><span>Printed ${formatDateTime(new Date())} by ${esc(actor.name)}</span><span>Kosh HR &amp; Payroll</span></footer>
   </body></html>`;
   const pdf = await renderPdf(html);
   await audit(actor.db, actor, { action: "PRINT", entityType: "LeaveLedger", entityId: employeeId, summary: `Printed the leave account of ${fullName(e)}` });

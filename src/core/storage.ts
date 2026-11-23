@@ -75,3 +75,16 @@ export async function loadFile(db: DbLike, fileId: string): Promise<{ buffer: Bu
   if (!buffer) throw new AppError(410, "file_gone", "errors.fileGone");
   return { buffer, name: row.name, contentType: row.contentType, sha256: row.sha256 };
 }
+
+/**
+ * The ported modules' shape: save bytes of a known kind and keep the returned key (the StoredFile id) on their own
+ * row; read them back by that key. Same organisation wall as saveFile / loadFile.
+ */
+export async function storeBytes(db: DbLike, buffer: Buffer, kind: FileKind, name = `file.${kind}`, createdById?: string | null) {
+  const row = await saveFile(db, { name, buffer, contentType: mimeOf(kind), createdById });
+  return { key: row.id, sha256: row.sha256, size: row.size };
+}
+
+export async function readBytes(db: DbLike, key: string): Promise<Buffer> {
+  return (await loadFile(db, key)).buffer;
+}

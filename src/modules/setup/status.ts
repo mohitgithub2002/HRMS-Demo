@@ -38,7 +38,7 @@ export async function setupStatus(actor: Actor) {
   const saved = new Set(savedKeys.map((s) => s.key));
   const steps: SetupStep[] = [
     { key: "profile", title: "setup.step.profile.title", hint: "setup.step.profile.hint", href: "/admin/organisation", done: Boolean(profile.address && profile.nameHi) },
-    { key: "ids", title: "setup.step.ids.title", hint: "setup.step.ids.hint", href: "/admin/settings#statutoryIds", done: Boolean(settings.statutoryIds.tan || settings.statutoryIds.ddoCode) },
+    { key: "ids", title: "setup.step.ids.title", hint: "setup.step.ids.hint", href: "/admin/settings#statutory", done: Boolean(settings.statutory.tan && settings.statutory.deductorName) },
     { key: "workflow", title: "setup.step.workflow.title", hint: "setup.step.workflow.hint", href: "/admin/settings#workflow", done: saved.has("workflow") },
     { key: "sections", title: "setup.step.sections.title", hint: "setup.step.sections.hint", href: "/admin/sections", done: sections > 0, figure: String(sections) },
     { key: "posts", title: "setup.step.posts.title", hint: "setup.step.posts.hint", href: "/admin/posts", done: posts > 0, figure: String(posts) },
@@ -50,7 +50,7 @@ export async function setupStatus(actor: Actor) {
     ...(modules.includes("leave")
       ? [{ key: "leave", title: "setup.step.leave.title" as const, hint: "setup.step.leave.hint" as const, href: "/leave/manage", done: leaveEntries > 0 }]
       : []),
-    { key: "bank", title: "setup.step.bank.title", hint: "setup.step.bank.hint", href: "/admin/settings#bank", done: Boolean(settings.bank.bankName && settings.bank.ifsc) },
+    { key: "bank", title: "setup.step.bank.title", hint: "setup.step.bank.hint", href: "/admin/settings#bank", done: Boolean(settings.bank.name && settings.bank.ifsc) },
   ];
   const done = steps.filter((s) => s.done).length;
   return { steps, done, total: steps.length, finished: Boolean(profile.setupCompletedAt) };

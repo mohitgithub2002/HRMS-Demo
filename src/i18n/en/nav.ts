@@ -9,6 +9,7 @@ export const nav = {
   payroll: "Payroll",
   pension: "Pension",
   statutory: "Tax & statutory",
+  rates: "Rates & rules",
   reports: "Reports",
   setup: "Setup",
   admin: "Administration",

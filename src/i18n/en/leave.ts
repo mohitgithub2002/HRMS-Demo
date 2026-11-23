@@ -141,7 +141,7 @@ export const leave = {
   },
   rules: {
     title: "Leave rules",
-    hint: "Central rules by default — to confirm for the organisation. A change takes effect only after an Admin approves it.",
+    hint: "Central government rules to start with — change them to match your own rules. A change takes effect only after an Admin approves it.",
     code: "Code",
     name: "Leave",
     credit: "Credit",

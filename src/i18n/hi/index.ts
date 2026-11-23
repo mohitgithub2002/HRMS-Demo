@@ -10,6 +10,12 @@ import { my } from "./my";
 import { nav } from "./nav";
 import { moduleName } from "./modules";
 import { platform } from "./platform";
+import { payroll } from "./payroll";
+import { pension } from "./pension";
+import { statutory } from "./statutory";
+import { rates } from "./rates";
+import { files } from "./files";
+import { easy } from "./easy";
 
 /** Hindi — same areas and keys as English (tests/unit/i18n.test.ts). */
 export const hi = {
@@ -37,4 +43,10 @@ export const hi = {
   my,
   attendance,
   leave,
+  payroll,
+  pension,
+  statutory,
+  rates,
+  files,
+  easy,
 };

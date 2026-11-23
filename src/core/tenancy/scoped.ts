@@ -60,6 +60,9 @@ export function scopeArgs(operation: string, rawArgs: unknown, tenantId: string)
   }
 }
 
+/** Which organisation each open transaction belongs to (a transaction client is not the proxy, so it is looked up here). */
+const txTenant = new WeakMap<object, string>();
+
 const setTenantSql = (tenantId: string) => Prisma.sql`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
 function build(tenantId: string): TenantDb {
@@ -93,6 +96,7 @@ function build(tenantId: string): TenantDb {
     if (typeof fn !== "function") throw new Error("Use db.$transaction(async (tx) => …) — the array form is not available on a tenant client");
     return inner.$transaction(async (tx) => {
       await tx.$executeRaw(setTenantSql(tenantId));
+      txTenant.set(tx as object, tenantId);
       return fn(tx as unknown as Tx);
     }, { timeout: 20_000, maxWait: 10_000, ...options });
   }
@@ -132,7 +136,7 @@ export function tenantDb(tenantId: string): TenantDb {
 
 /** The tenant id a client or transaction was built for — only for clients from tenantDb(). */
 export function tenantOf(db: DbLike): string {
-  const id = (db as unknown as { tenantId?: string }).tenantId;
+  const id = (db as unknown as { tenantId?: string }).tenantId ?? txTenant.get(db as object);
   if (!id) throw new Error("Not a tenant client");
   return id;
 }
