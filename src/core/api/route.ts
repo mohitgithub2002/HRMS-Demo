@@ -2,6 +2,7 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError, type ZodType } from "zod";
 import { approveDirectly } from "@/core/approvals/engine";
+import { orgChanged } from "@/core/cache";
 import { collectSubmitted } from "@/core/approvals/direct";
 import { getActor, type Actor } from "@/core/auth/session";
 import { getPlatformActor, type PlatformActor } from "@/core/auth/platform-session";
@@ -122,6 +123,8 @@ export function apiRoute<P extends Params = Params>(handler: (ctx: Ctx<P> & { ac
       const { result, taskIds } = await collectSubmitted(() => handler({ ...build(req, params, meta), actor }));
       // The simple way of working: what this person entered and may decide themselves counts at once.
       const applied = await approveDirectly(actor, taskIds);
+      // A change: the organisation's cached figures (Home) are worked out afresh (core/cache.ts).
+      if (req.method !== "GET" && req.method !== "HEAD") orgChanged(actor.tenantId);
       return respond(result, applied > 0);
     } catch (e) {
       return noStore(await toErrorResponse(e));

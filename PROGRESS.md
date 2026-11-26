@@ -41,8 +41,30 @@ What has changed, what was verified, what is pending. The module checklist is in
 | Payroll, statutory and pension ported **together** (Modules 7–10) | The pay engine, TDS projection, GPF posting, settlements and the pension bill call each other; porting them one by one would have meant stubs in the engine |
 | Signing codes tied to the item (`core/auth/sign.ts`) | A code sent for one pay bill cannot approve another; OTP limits count per purpose, so signing never blocks sign-in |
 | Generated files are StoredFiles + a FileRecord register (`core/files`) | Same organisation wall as every upload; maker-checker release before download |
+| Fewer round trips, not a weaker wall (`core/tenancy/pool.ts`) | The tenant setting stays transaction-local (safe behind a pooler); the pool fuses BEGIN with it, pipelines the query and does not wait for a read's COMMIT — one round trip per read |
+| Cache only Home's figures and the inbox badge, per person, cleared by any change (`core/cache.ts`) | The slow, repeated reads; every list and form still reads live, so nothing a person just did can look undone |
 
 ## Change log (newest first)
+
+### 2026-11-26 — Faster pages: one round trip per read, fewer queries, Home cached and streamed
+- Measured first: behind a simulated 50 ms link to the database every page paid about 13 round trips before showing
+  anything (each query was BEGIN, set the organisation, the query, COMMIT — four trips), and Home ran about 50 queries.
+- The pool (`core/tenancy/pool.ts`) sends BEGIN together with the organisation setting, pipelines the query behind it
+  (pg's pipeline mode; `DB_PIPELINE=0` turns it off) and does not wait for the COMMIT of a transaction that only
+  read: a read is one round trip instead of four. Writes still wait for their COMMIT. Unit-tested
+  (`tests/unit/pool.test.ts`); the whole suite also passes through PgBouncer in transaction mode with 3 server
+  connections, and a new isolation test reads two organisations 300 times at once.
+- Prisma `relationJoins`: an `include` is one query instead of one per relation. The sign-in check reads the login,
+  its employee record and pension in one query beside the organisation and the settings; all settings are read once
+  per page (`requestSettings`) instead of once per key.
+- Home streams (the greeting and quick actions at once, the figures as they are ready) and its figures, to-do list,
+  panel, setup progress and the inbox badge are cached per person for up to a minute (`core/cache.ts`, Next's
+  `unstable_cache`), thrown away by `orgChanged()` after every successful change through the API — checked in a
+  browser: a new section shows on Home at once. The daily jobs moved out of the to-do list (`startDailyJobs`).
+- The statutory calendar reads its rules and bills side by side.
+- Result at 50 ms per round trip: Home 1.87 s → 0.14 s (0.47 s on the first visit after a change), simple pages
+  0.70 s → 0.12 s, the heaviest (Statutory, Attendance, Payroll, Recruitment) about 1 s → 0.32 s. Setup guide: put
+  the app in the database's region (Vercel Function Region), Neon's sleep, `DB_PIPELINE`.
 
 ### 2026-11-24 — Fix: "Unable to start a transaction in the given time" (P2028) on Neon
 - Every query runs in a short transaction (it sets the organisation for row-level security); those used Prisma's

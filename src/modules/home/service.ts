@@ -68,11 +68,16 @@ export interface Tile {
   hintHi?: string;
 }
 
-export async function myWork(actor: Actor): Promise<WorkItem[]> {
-  // The day's jobs, after the response: filing reminders (ST-08), people past retirement or their last day leave the
-  // rolls (PN-10, client add-on), life certificate reminders (PN-06). Each runs once a day.
-  // Once a day per organisation (kept in the database), one job after another — see core/daily.ts.
+/**
+ * The day's jobs, after the response: filing reminders (ST-08), people past retirement or their last day leave the
+ * rolls (PN-10, client add-on), life certificate reminders (PN-06). Started by every visit to Home; they run once a day
+ * per organisation (kept in the database), one job after another — see core/daily.ts.
+ */
+export function startDailyJobs(actor: Actor) {
   later(() => onceADay(actor.db, "home", [() => applyExits(actor.db), () => sendDueReminders(actor.db), async () => pensionDailyJobs(actor.db)]));
+}
+
+export async function myWork(actor: Actor): Promise<WorkItem[]> {
   const isStaff = actor.loginType === "EMPLOYEE" && actor.employeeId && actor.isEmployee;
   // Everything the list needs, at once.
   const [tasks, due, openSettlements, filings, pension, mine, decl] = await Promise.all([

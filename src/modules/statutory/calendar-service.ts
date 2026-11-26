@@ -56,9 +56,11 @@ const daysBetween = (a: ISODate, b: ISODate) => Math.round((fromISODate(b).getTi
 
 /** Due dates from `from` to `to`, each with whether it is done. */
 export async function calendarFor(tx: DbLike, from: ISODate, to: ISODate, today: ISODate = todayIST()): Promise<CalendarItem[]> {
-  const rules = await dueRules(tx);
-  // AFTER_PAY rules count from the day each regular OPS bill was approved.
-  const opsRuns = await tx.payrollRun.findMany({ where: { payGroup: "OPS", kind: "REGULAR", approvedAt: { not: null } }, select: { month: true, approvedAt: true } });
+  // The rules, and (for AFTER_PAY rules, which count from the day each regular OPS bill was approved) the bills.
+  const [rules, opsRuns] = await Promise.all([
+    dueRules(tx),
+    tx.payrollRun.findMany({ where: { payGroup: "OPS", kind: "REGULAR", approvedAt: { not: null } }, select: { month: true, approvedAt: true } }),
+  ]);
   const approvals = new Map(opsRuns.map((r) => [r.month, toISODate(r.approvedAt!)]));
   const items = dueItems(rules, from, to, approvals);
   const periods = [...new Set(items.map((i) => i.period))];

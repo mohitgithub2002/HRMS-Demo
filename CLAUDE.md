@@ -8,7 +8,9 @@
 - **Stack:** Next.js 16 (App Router, `src/proxy.ts`), TypeScript strict, Tailwind v4, Prisma 7 + PostgreSQL 16.
 - **Tenancy (docs/ARCHITECTURE.md):** every business table has `tenantId String @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))`
   and every migration ends with `SELECT kosh_enable_rls();` — write migrations with `npm run db:new -- <name>` (never
-  `migrate reset`). Business code uses `actor.db` (a `tenantDb()` client) and never imports `@/core/tenancy/raw` or
+  `migrate reset`). The pool (`core/tenancy/pool.ts`) makes a read one round trip (BEGIN fused with the setting,
+  pipelined query, unawaited read-only COMMIT) — never set the tenant per session instead. Business code uses
+  `actor.db` (a `tenantDb()` client) and never imports `@/core/tenancy/raw` or
   `@/core/tenancy/platform` (ESLint enforces it). Cross-tenant code lives only in `src/platform`. Add every new tenant
   table to the isolation reasoning: the RLS test checks all of them automatically.
 - **Layers:** `src/modules/<module>/service.ts` = rules + permission checks, taking an `Actor`; `src/app/api/v1/**` thin
@@ -20,6 +22,9 @@
   them at creation.
 - **Setup checklist:** a module that needs setting up adds its step to `src/modules/setup/status.ts` (worked out from
   data, never ticked by hand) and its chapter to `docs/SETUP-GUIDE.md`.
+- **Speed:** Prisma `relationJoins` is on (an `include` is one query); read in parallel; settings through
+  `getSetting` / `requestSettings` (one query per page). Cache only slow repeated figures, per person, with
+  `cachedForPerson` (`core/cache.ts`) — `apiRoute` clears an organisation's cache after every change.
 - **Text:** every visible string in `src/i18n/en/*.ts` and `src/i18n/hi/*.ts` (same keys and placeholders — tested).
   Simple words.
 - **Design:** tokens in `src/app/globals.css` (canvas / surface / line / ink / muted + brand and gold scales, light and

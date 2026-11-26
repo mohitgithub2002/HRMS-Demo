@@ -7,6 +7,7 @@
  */
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
+import { KoshPool } from "./pool";
 
 const g = globalThis as unknown as { koshPrisma?: PrismaClient };
 
@@ -27,13 +28,16 @@ export function rawDb(): PrismaClient {
   if (!g.koshPrisma) {
     const url = process.env.DATABASE_URL;
     if (!url) throw new Error("DATABASE_URL is not set");
-    const adapter = new PrismaPg({
+    // KoshPool sends one round trip per read instead of four (pool.ts); DB_PIPELINE=0 turns pipelining off (two).
+    const pool = new KoshPool({
       connectionString: url,
+      pipeline: process.env.DB_PIPELINE !== "0",
       max: num("DB_POOL_MAX", 10),
       // Wait for a waking database instead of failing at once; let idle connections go so it can sleep again.
       connectionTimeoutMillis: num("DB_CONNECT_TIMEOUT_MS", 20_000),
       idleTimeoutMillis: num("DB_IDLE_TIMEOUT_MS", 30_000),
     });
+    const adapter = new PrismaPg(pool, { disposeExternalPool: true });
     const log = process.env.PERF_LOG_QUERIES ? [{ emit: "event" as const, level: "query" as const }] : [];
     g.koshPrisma = new PrismaClient({ adapter, log });
     if (log.length) {
