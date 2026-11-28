@@ -79,7 +79,7 @@ Fill in:
 | `DIRECT_DATABASE_URL` | Neon's **direct** connection string (no `-pooler`). Migrations and the seed use it. |
 | `DB_POOL_MAX` | Connections each app instance may open — `10` (the default) suits Neon's pooler. |
 | `DB_TX_MAX_WAIT_MS`, `DB_CONNECT_TIMEOUT_MS` | How long a query waits for a connection — `20000` by default. A Neon database that has gone to sleep takes a second or two to wake; the default covers it. |
-| `DB_PIPELINE` | Leave unset. Kosh sends a read and the organisation setting before it together (one round trip per read). `0` turns this off if a database proxy ever refuses it (two round trips per read). |
+| `DB_PIPELINE` | Leave unset (off). `1` sends each read right behind its organisation setting without waiting and does not wait for a read's COMMIT — one round trip per read instead of three — but on Vercel with Neon's pooled address it left connections waiting until the pool ran dry (*"timeout exceeded when trying to connect"*). Try it only on a long-running server, and turn it off again if that error appears. |
 
 - **Put the app and the database in the same region — this matters more than anything else for speed.** Every page
   waits for a few round trips to the database; at 2 ms each (same region) that is nothing, at 200 ms each (Vercel's

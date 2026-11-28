@@ -28,10 +28,14 @@ export function rawDb(): PrismaClient {
   if (!g.koshPrisma) {
     const url = process.env.DATABASE_URL;
     if (!url) throw new Error("DATABASE_URL is not set");
-    // KoshPool sends one round trip per read instead of four (pool.ts); DB_PIPELINE=0 turns pipelining off (two).
+    // KoshPool sends three round trips per read instead of four, one with DB_PIPELINE=1 (pool.ts).
     const pool = new KoshPool({
       connectionString: url,
-      pipeline: process.env.DB_PIPELINE !== "0",
+      pipeline: process.env.DB_PIPELINE === "1",
+      // Notice a connection that died while the server was asleep (a serverless instance frozen between requests)
+      // instead of waiting on it.
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10_000,
       max: num("DB_POOL_MAX", 10),
       // Wait for a waking database instead of failing at once; let idle connections go so it can sleep again.
       connectionTimeoutMillis: num("DB_CONNECT_TIMEOUT_MS", 20_000),

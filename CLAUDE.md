@@ -8,8 +8,9 @@
 - **Stack:** Next.js 16 (App Router, `src/proxy.ts`), TypeScript strict, Tailwind v4, Prisma 7 + PostgreSQL 16.
 - **Tenancy (docs/ARCHITECTURE.md):** every business table has `tenantId String @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))`
   and every migration ends with `SELECT kosh_enable_rls();` — write migrations with `npm run db:new -- <name>` (never
-  `migrate reset`). The pool (`core/tenancy/pool.ts`) makes a read one round trip (BEGIN fused with the setting,
-  pipelined query, unawaited read-only COMMIT) — never set the tenant per session instead. Business code uses
+  `migrate reset`). The pool (`core/tenancy/pool.ts`) sends BEGIN with the setting (pipelining and unawaited
+  read-only COMMITs only with `DB_PIPELINE=1` — off: they drained the pool on Vercel + Neon) — never set the tenant
+  per session instead. Business code uses
   `actor.db` (a `tenantDb()` client) and never imports `@/core/tenancy/raw` or
   `@/core/tenancy/platform` (ESLint enforces it). Cross-tenant code lives only in `src/platform`. Add every new tenant
   table to the isolation reasoning: the RLS test checks all of them automatically.

@@ -82,8 +82,9 @@ describe.skipIf(!hasDb)("tenant isolation", () => {
   });
 
   it("keeps the wall under load: many reads of two organisations at once on few connections (core/tenancy/pool.ts)", async () => {
-    // The pool sends BEGIN with the setting, pipelines the query behind it and does not wait for a read's COMMIT; with
-    // connections passed quickly from one organisation to the other, every read must still see only its own rows.
+    // The pool sends BEGIN with the setting (and, with DB_PIPELINE=1, pipelines the query and does not wait for a read's
+    // COMMIT); with connections passed quickly from one organisation to the other, every read must still see only its
+    // own rows. Run it with DB_PIPELINE=1 too.
     const rounds = Array.from({ length: 300 }, (_, i) => (i % 2 ? b : a));
     const seen = await Promise.all(
       rounds.map(async (id, i) => {

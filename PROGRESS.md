@@ -41,10 +41,22 @@ What has changed, what was verified, what is pending. The module checklist is in
 | Payroll, statutory and pension ported **together** (Modules 7–10) | The pay engine, TDS projection, GPF posting, settlements and the pension bill call each other; porting them one by one would have meant stubs in the engine |
 | Signing codes tied to the item (`core/auth/sign.ts`) | A code sent for one pay bill cannot approve another; OTP limits count per purpose, so signing never blocks sign-in |
 | Generated files are StoredFiles + a FileRecord register (`core/files`) | Same organisation wall as every upload; maker-checker release before download |
-| Fewer round trips, not a weaker wall (`core/tenancy/pool.ts`) | The tenant setting stays transaction-local (safe behind a pooler); the pool fuses BEGIN with it, pipelines the query and does not wait for a read's COMMIT — one round trip per read |
+| Fewer round trips, not a weaker wall (`core/tenancy/pool.ts`) | The tenant setting stays transaction-local (safe behind a pooler); the pool fuses BEGIN with it. Pipelining and unawaited read-only COMMITs are opt-in (`DB_PIPELINE=1`) after they drained the pool on Vercel + Neon |
 | Cache only Home's figures and the inbox badge, per person, cleared by any change (`core/cache.ts`) | The slow, repeated reads; every list and form still reads live, so nothing a person just did can look undone |
 
 ## Change log (newest first)
+
+### 2026-11-28 — Fix: "timeout exceeded when trying to connect" on Vercel + Neon after the speed work
+- On the deployment the pool ran out of connections: some were left waiting and never came back. The two new
+  protocol tricks of the speed work — pg's pipeline mode and not waiting for a read-only COMMIT — are the only part
+  that changes how connections are used, so both are now off by default (`DB_PIPELINE=1` turns them on, documented
+  as only for a long-running server). They could not be reproduced locally (600 page loads, 30 at a time, both
+  straight to PostgreSQL over SSL and through PgBouncer with SSL in transaction mode, all fine), so the safe side
+  was chosen.
+- Pool connections use TCP keep-alive, so one that died while a serverless instance was frozen is noticed instead of
+  waited on.
+- Kept: BEGIN sent with the organisation setting (an ordinary single message), `relationJoins`, the one-query
+  sign-in check, settings once per page, Home cached and streamed. A read is three round trips instead of four.
 
 ### 2026-11-26 — Faster pages: one round trip per read, fewer queries, Home cached and streamed
 - Measured first: behind a simulated 50 ms link to the database every page paid about 13 round trips before showing

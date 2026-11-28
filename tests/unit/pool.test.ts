@@ -48,9 +48,18 @@ describe("the connection pool's transactions", () => {
     expect(w2.sent).toEqual(["BEGIN", write.text, "COMMIT"]);
   });
 
-  it("does not wait for the COMMIT of a transaction that only read, but does for one that wrote", async () => {
+  it("waits for every COMMIT unless pipelined", async () => {
+    const w = wire((t) => (t === "COMMIT" ? new Error("connection lost") : null));
+    const q = wrapQuery(w.original);
+    await q(sql("BEGIN"));
+    await q(setTenant);
+    await q(read);
+    await expect(q(sql("COMMIT"))).rejects.toThrow("connection lost");
+  });
+
+  it("pipelined: does not wait for the COMMIT of a transaction that only read, but does for one that wrote", async () => {
     const reads = wire();
-    const q = wrapQuery(reads.original);
+    const q = wrapQuery(reads.original, { pipelined: true });
     await q(sql("BEGIN"));
     await q(setTenant);
     await q(read);
@@ -60,7 +69,7 @@ describe("the connection pool's transactions", () => {
 
     let commitFailed = false;
     const writes = wire((t) => (t === "COMMIT" ? new Error("deferred constraint") : null));
-    const q2 = wrapQuery(writes.original, { onCommitError: () => (commitFailed = true) });
+    const q2 = wrapQuery(writes.original, { pipelined: true, onCommitError: () => (commitFailed = true) });
     await q2(sql("BEGIN"));
     await q2(setTenant);
     await q2(write);

@@ -68,10 +68,10 @@ Ask lets a language model write SQL, so it gets walls of its own on top of the o
 ## Cost of the walls
 
 Each top-level query of a tenant client runs as `BEGIN; set_config; query; COMMIT` (one pooled connection, four
-short statements). The pool (`src/core/tenancy/pool.ts`) makes that one network round trip for a read: BEGIN and the
-setting go as one message, the query is pipelined right behind it, and a transaction that only read is committed
-without waiting for the answer (the connection's next user queues behind the COMMIT). Writes wait for their COMMIT as
-always. Nothing changes on the server — the setting is still transaction-local, so it is as safe behind PgBouncer or
+short statements). The pool (`src/core/tenancy/pool.ts`) sends BEGIN and the setting as one message, so a read is
+three round trips. With `DB_PIPELINE=1` it is one (the query is pipelined behind the setting and a read-only COMMIT is
+not waited for), but that is off by default: on Vercel with Neon's pooler it left connections waiting until the pool
+ran dry. Nothing changes on the server — the setting is still transaction-local, so it is as safe behind PgBouncer or
 the Neon pooler (`tests/integration/isolation.test.ts` reads two organisations at once, hundreds of times, on a few
 connections). Never set the tenant for a whole session instead: behind a pooler it would leak to the next client.
 

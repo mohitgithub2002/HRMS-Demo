@@ -3,20 +3,18 @@
  *
  * Every tenant query runs in its own short transaction that first sets app.tenant_id (scoped.ts), which on its own
  * costs four round trips: BEGIN, set_config, the query, COMMIT. Against a hosted database each round trip is a real
- * network trip, so this pool removes up to three of them without changing what runs on the server:
+ * network trip, so this pool removes some of them without changing what runs on the server:
  *
- *  1. BEGIN is held back and sent together with the statement that follows it when that statement is
- *     `SELECT set_config('app.…', $1, true)` — one simple-protocol message "BEGIN; SELECT set_config(…)". The value is
- *     an id (checked against a strict pattern before it is written into the text); anything else falls back to a
- *     separate BEGIN. The setting stays transaction-local, so this is as safe behind PgBouncer / the Neon pooler as
- *     before.
- *  2. A transaction that only ran SELECTs (it changed nothing, so there is nothing to confirm) is committed without
- *     waiting for the answer: COMMIT is queued on the connection and the connection goes back to the pool. The next
- *     user of that connection queues behind the COMMIT (node-postgres runs a connection's queries in order), so no
- *     two transactions ever overlap. Any transaction that wrote anything waits for its COMMIT as usual.
- *  3. With pg's pipeline mode (on unless DB_PIPELINE=0), the fused BEGIN is not waited for either: the statement after
- *     it goes on the wire right behind it and both answers come back together, so a read is one round trip. If the
- *     BEGIN failed, the transaction is aborted, the statement after it fails too, and the BEGIN's error is reported.
+ *  1. Always: BEGIN is held back and sent together with the statement that follows it when that statement is
+ *     `SELECT set_config('app.…', $1, true)` — one ordinary simple-protocol message "BEGIN; SELECT set_config(…)". The
+ *     value is an id (checked against a strict pattern before it is written into the text); anything else falls back
+ *     to a separate BEGIN. The setting stays transaction-local, so this is as safe behind PgBouncer / the Neon pooler
+ *     as before. A read is three round trips.
+ *  2. Only with DB_PIPELINE=1 (off by default — on Vercel with Neon's pooler connections were left waiting and the
+ *     pool ran dry, "timeout exceeded when trying to connect"): pg's pipeline mode sends the statement right behind
+ *     the fused BEGIN without waiting, and a transaction that only ran SELECTs is committed without waiting for the
+ *     answer (the connection's next user queues behind that COMMIT). A read is then one round trip. If the BEGIN
+ *     failed, the statement after it fails too and the BEGIN's error is reported. Writes always wait for COMMIT.
  *
  * Not "server-only": the seed and scripts use it too.
  */
@@ -46,7 +44,10 @@ const WRAPPED = Symbol.for("kosh.pool.wrapped");
 const done = (command: string) => ({ command, rowCount: 0, oid: 0, rows: [], fields: [] });
 
 export interface WrapOptions {
-  /** The connection runs in pg's pipeline mode: the fused BEGIN is not waited for (see the top of this file). */
+  /**
+   * The connection runs in pg's pipeline mode: the fused BEGIN is not waited for, nor a read-only COMMIT (see the top
+   * of this file). Without it every statement waits for its answer.
+   */
   pipelined?: boolean;
   onCommitError?: (e: unknown) => void;
 }
@@ -98,7 +99,7 @@ export function wrapQuery(original: QueryFn, options: WrapOptions = {}): Wrapped
         state.open = false;
         const setup = state.setup;
         state.setup = null;
-        if (state.readOnly) {
+        if (state.readOnly && options.pipelined) {
           original({ text: "COMMIT" }).catch(onCommitError);
           return done("COMMIT");
         }
