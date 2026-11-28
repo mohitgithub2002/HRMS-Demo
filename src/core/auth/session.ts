@@ -8,9 +8,9 @@ import { secureCookies } from "@/core/env";
 import { rawDb } from "@/core/tenancy/raw";
 import { tenantDb, type TenantDb } from "@/core/tenancy/scoped";
 import { assertRlsEnforced } from "@/core/tenancy/platform";
-import { readValue } from "@/modules/settings/schema";
+import { requestSettings } from "@/modules/settings/store";
 import type { Principal } from "./access";
-import { resolvePerson } from "./person";
+import { PERSON_INCLUDE, personOf } from "./person";
 import { usableTenant } from "./tenant-status";
 
 export const SESSION_COOKIE = "kosh_session";
@@ -140,13 +140,15 @@ export const getActor = cache(async (): Promise<Actor | null> => {
   }
   await assertRlsEnforced();
   const db = tenantDb(s.tenantId);
-  const [tenant, user, workflow] = await Promise.all([
+  // One stage, three queries side by side: the organisation, the login with everything its access depends on
+  // (PERSON_INCLUDE), and the organisation's settings (shared with the rest of the request — settings/store.ts).
+  const [tenant, user, settings] = await Promise.all([
     loadTenantInfo(s.tenantId),
-    db.user.findUnique({ where: { id: s.userId } }),
-    db.setting.findFirst({ where: { key: "workflow" } }),
+    db.user.findUnique({ where: { id: s.userId }, include: PERSON_INCLUDE }),
+    requestSettings(db),
   ]);
   if (!tenant || !usableTenant(tenant.status) || !user || user.status !== "ACTIVE") return null;
-  const person = await resolvePerson(db, user);
+  const person = personOf(user);
   if (!person.hasAccess) return null;
   if (now - s.lastSeenAt.getTime() > TOUCH_INTERVAL_MS) {
     const touch = () => rawDb().session.update({ where: { id: s.id }, data: { lastSeenAt: new Date() } }).then(() => undefined, () => undefined);
@@ -167,7 +169,7 @@ export const getActor = cache(async (): Promise<Actor | null> => {
     loginType: user.loginType,
     permissions: user.permissions,
     modules: tenant.modules,
-    simple: readValue("workflow", workflow?.value).mode === "simple",
+    simple: settings.workflow.mode === "simple",
     employeeId: user.employeeId,
     pensionerId: person.pensionerId,
     sectionId: person.sectionId,

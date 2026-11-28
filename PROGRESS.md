@@ -41,8 +41,53 @@ What has changed, what was verified, what is pending. The module checklist is in
 | Payroll, statutory and pension ported **together** (Modules 7–10) | The pay engine, TDS projection, GPF posting, settlements and the pension bill call each other; porting them one by one would have meant stubs in the engine |
 | Signing codes tied to the item (`core/auth/sign.ts`) | A code sent for one pay bill cannot approve another; OTP limits count per purpose, so signing never blocks sign-in |
 | Generated files are StoredFiles + a FileRecord register (`core/files`) | Same organisation wall as every upload; maker-checker release before download |
+| Fewer round trips, not a weaker wall (`core/tenancy/pool.ts`) | The tenant setting stays transaction-local (safe behind a pooler); the pool fuses BEGIN with it. Pipelining and unawaited read-only COMMITs are opt-in (`DB_PIPELINE=1`) after they drained the pool on Vercel + Neon |
+| Cache only Home's figures and the inbox badge, per person, cleared by any change (`core/cache.ts`) | The slow, repeated reads; every list and form still reads live, so nothing a person just did can look undone |
 
 ## Change log (newest first)
+
+### 2026-11-28 — Fix: "timeout exceeded when trying to connect" on Vercel + Neon after the speed work
+- On the deployment the pool ran out of connections: some were left waiting and never came back. The two new
+  protocol tricks of the speed work — pg's pipeline mode and not waiting for a read-only COMMIT — are the only part
+  that changes how connections are used, so both are now off by default (`DB_PIPELINE=1` turns them on, documented
+  as only for a long-running server). They could not be reproduced locally (600 page loads, 30 at a time, both
+  straight to PostgreSQL over SSL and through PgBouncer with SSL in transaction mode, all fine), so the safe side
+  was chosen.
+- Pool connections use TCP keep-alive, so one that died while a serverless instance was frozen is noticed instead of
+  waited on.
+- Kept: BEGIN sent with the organisation setting (an ordinary single message), `relationJoins`, the one-query
+  sign-in check, settings once per page, Home cached and streamed. A read is three round trips instead of four.
+
+### 2026-11-26 — Faster pages: one round trip per read, fewer queries, Home cached and streamed
+- Measured first: behind a simulated 50 ms link to the database every page paid about 13 round trips before showing
+  anything (each query was BEGIN, set the organisation, the query, COMMIT — four trips), and Home ran about 50 queries.
+- The pool (`core/tenancy/pool.ts`) sends BEGIN together with the organisation setting, pipelines the query behind it
+  (pg's pipeline mode; `DB_PIPELINE=0` turns it off) and does not wait for the COMMIT of a transaction that only
+  read: a read is one round trip instead of four. Writes still wait for their COMMIT. Unit-tested
+  (`tests/unit/pool.test.ts`); the whole suite also passes through PgBouncer in transaction mode with 3 server
+  connections, and a new isolation test reads two organisations 300 times at once.
+- Prisma `relationJoins`: an `include` is one query instead of one per relation. The sign-in check reads the login,
+  its employee record and pension in one query beside the organisation and the settings; all settings are read once
+  per page (`requestSettings`) instead of once per key.
+- Home streams (the greeting and quick actions at once, the figures as they are ready) and its figures, to-do list,
+  panel, setup progress and the inbox badge are cached per person for up to a minute (`core/cache.ts`, Next's
+  `unstable_cache`), thrown away by `orgChanged()` after every successful change through the API — checked in a
+  browser: a new section shows on Home at once. The daily jobs moved out of the to-do list (`startDailyJobs`).
+- The statutory calendar reads its rules and bills side by side.
+- Result at 50 ms per round trip: Home 1.87 s → 0.14 s (0.47 s on the first visit after a change), simple pages
+  0.70 s → 0.12 s, the heaviest (Statutory, Attendance, Payroll, Recruitment) about 1 s → 0.32 s. Setup guide: put
+  the app in the database's region (Vercel Function Region), Neon's sleep, `DB_PIPELINE`.
+
+### 2026-11-24 — Fix: "Unable to start a transaction in the given time" (P2028) on Neon
+- Every query runs in a short transaction (it sets the organisation for row-level security); those used Prisma's
+  2-second wait for a connection, too short for a serverless database waking up or a page that fires many queries at
+  once. All transactions now wait up to `DB_TX_MAX_WAIT_MS` (20 s), the pool waits `DB_CONNECT_TIMEOUT_MS` for a
+  connection, and idle connections are released (`DB_IDLE_TIMEOUT_MS`) so the database can sleep.
+- Home's daily jobs (people leaving the rolls, filing reminders, pension jobs) ran on nearly every visit on a serverless
+  host (each cold start is a new process) and all at once; they now run once a day per organisation, recorded in the
+  database (`core/daily.ts`), one after another.
+- Reproduced with a pool of 2 and two long transactions: before, 20 of 20 waiting reads failed with P2028; after,
+  none. Setup guide: a section on hosting on Neon (pooled and direct addresses, region, settings).
 
 ### 2026-11-23 — Help Centre (/help) ✅
 - An interactive question-and-answer guide for people who have never used an HR and payroll system: about 105

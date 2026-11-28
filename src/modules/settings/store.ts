@@ -2,6 +2,7 @@
  * Reading and writing organisation settings. Reads go through the tenant client, so an organisation only ever sees
  * its own; all keys are read in one query.
  */
+import { cache } from "react";
 import type { Prisma } from "@/generated/prisma/client";
 import { audit, type AuditWho } from "@/core/audit";
 import type { DbLike, TenantDb } from "@/core/tenancy/scoped";
@@ -15,7 +16,17 @@ export async function getSettings(db: DbLike): Promise<AllSettings> {
   return Object.fromEntries(SETTING_KEYS.map((k) => [k, readValue(k, byKey.get(k))])) as AllSettings;
 }
 
+/**
+ * All settings of the organisation, read once per page render (React's per-request cache): the sign-in check, the
+ * layout and the page all ask for settings, and they share one query. Only for the organisation's client — a
+ * transaction always reads afresh — and outside a page render (API routes, actions, scripts) it simply reads.
+ */
+export const requestSettings = cache((db: TenantDb): Promise<AllSettings> => getSettings(db));
+
+const isTenantClient = (db: DbLike): db is TenantDb => typeof (db as { tenantId?: unknown }).tenantId === "string";
+
 export async function getSetting<K extends SettingKey>(db: DbLike, key: K): Promise<SettingValue<K>> {
+  if (isTenantClient(db)) return (await requestSettings(db))[key];
   const row = await db.setting.findFirst({ where: { key } });
   return readValue(key, row?.value);
 }

@@ -81,6 +81,32 @@ describe.skipIf(!hasDb)("tenant isolation", () => {
     expect(await rawDb().section.count()).toBe(0);
   });
 
+  it("keeps the wall under load: many reads of two organisations at once on few connections (core/tenancy/pool.ts)", async () => {
+    // The pool sends BEGIN with the setting (and, with DB_PIPELINE=1, pipelines the query and does not wait for a read's
+    // COMMIT); with connections passed quickly from one organisation to the other, every read must still see only its
+    // own rows. Run it with DB_PIPELINE=1 too.
+    const rounds = Array.from({ length: 300 }, (_, i) => (i % 2 ? b : a));
+    const seen = await Promise.all(
+      rounds.map(async (id, i) => {
+        const db = tenantDb(id);
+        if (i % 3 === 0) {
+          // RLS alone, inside an interactive transaction: what the setting says, and the rows it lets through.
+          return db.$transaction(async (tx) => {
+            const [{ t }] = await tx.$queryRaw<{ t: string }[]>(Prisma.sql`SELECT current_setting('app.tenant_id') AS t`);
+            const rows = await tx.$queryRaw<{ tenantId: string }[]>(Prisma.sql`SELECT "tenantId" FROM "Section"`);
+            return { id, tenants: [t, ...rows.map((r) => r.tenantId)] };
+          });
+        }
+        const rows = await db.section.findMany({ select: { tenantId: true, name: true } });
+        return { id, tenants: rows.map((r) => r.tenantId) };
+      }),
+    );
+    for (const s of seen) {
+      expect(s.tenants.length).toBeGreaterThan(0);
+      expect(new Set(s.tenants)).toEqual(new Set([s.id]));
+    }
+  });
+
   it("refuses the platform tables through a tenant client", async () => {
     await expect(tenantDb(a).tenant.findMany()).rejects.toThrow(/platform table/);
   });

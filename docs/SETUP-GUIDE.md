@@ -71,6 +71,32 @@ Fill in:
 | `STORAGE_DRIVER` | `disk` on your own server, `database` on Vercel |
 | `PLATFORM_OWNER_EMAIL`, `PLATFORM_OWNER_PASSWORD` | The first person who will open the platform console |
 
+#### Hosting the database on Neon (or another serverless PostgreSQL)
+
+| Setting | What to put |
+|---|---|
+| `DATABASE_URL` | Neon's **pooled** connection string (the host contains `-pooler`), ending in `?sslmode=require`. The app uses it for every request. |
+| `DIRECT_DATABASE_URL` | Neon's **direct** connection string (no `-pooler`). Migrations and the seed use it. |
+| `DB_POOL_MAX` | Connections each app instance may open — `10` (the default) suits Neon's pooler. |
+| `DB_TX_MAX_WAIT_MS`, `DB_CONNECT_TIMEOUT_MS` | How long a query waits for a connection — `20000` by default. A Neon database that has gone to sleep takes a second or two to wake; the default covers it. |
+| `DB_PIPELINE` | Leave unset (off). `1` sends each read right behind its organisation setting without waiting and does not wait for a read's COMMIT — one round trip per read instead of three — but on Vercel with Neon's pooled address it left connections waiting until the pool ran dry (*"timeout exceeded when trying to connect"*). Try it only on a long-running server, and turn it off again if that error appears. |
+
+- **Put the app and the database in the same region — this matters more than anything else for speed.** Every page
+  waits for a few round trips to the database; at 2 ms each (same region) that is nothing, at 200 ms each (Vercel's
+  default region in the USA talking to a Neon database in Mumbai) it is about a second. On Vercel: Project →
+  Settings → Functions → **Function Region**, choose the region of your Neon project (Neon shows it on the project's
+  dashboard; Mumbai `aws-ap-south-1` is Vercel's `bom1`, Singapore `aws-ap-southeast-1` is `sin1`, Frankfurt
+  `aws-eu-central-1` is `fra1`, N. Virginia `aws-us-east-1` is `iad1`). Redeploy after changing it.
+- A Neon database on the free plan goes to sleep after a few idle minutes; the first page after that waits a second
+  or two while it wakes. A paid plan can keep it awake (Neon → Compute → scale to zero: off).
+- Home's figures are kept for a minute per person and worked out afresh the moment anything in the organisation
+  changes (`src/core/cache.ts`); on Vercel the cache is shared by every instance.
+- The error *"Transaction API error: Unable to start a transaction in the given time" (P2028)* means queries waited
+  longer than `DB_TX_MAX_WAIT_MS` for a connection: check the region first, then raise `DB_TX_MAX_WAIT_MS` or
+  `DB_POOL_MAX`.
+- If the server log shows *"The database login bypasses row-level security"*, the login has the BYPASSRLS attribute:
+  use an ordinary login for `DATABASE_URL` (in production Kosh refuses to start without one).
+
 ### A4. Install and start
 
 ```bash

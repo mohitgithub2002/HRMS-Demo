@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import {
   ArrowLeftRight,
   ArrowRight,
@@ -32,7 +33,9 @@ import {
 } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { StatTile } from "@/components/ui/stat-tile";
+import { cachedForPerson } from "@/core/cache";
 import { can, canAll, canManageUsers, isFullAdmin } from "@/core/auth/access";
 import { requireActor } from "@/core/auth/guard";
 import { roleOf } from "@/core/auth/roles";
@@ -42,7 +45,7 @@ import type { Locale } from "@/core/i18n/types";
 import { getT } from "@/core/i18n/server";
 import { tDynamic, type TFunction } from "@/i18n";
 import { greetingKey } from "@/modules/home/greeting";
-import { adminPanel, homeTiles, myWork, type Tile, type WorkItem } from "@/modules/home/service";
+import { adminPanel, homeTiles, myWork, startDailyJobs, type Tile, type WorkItem } from "@/modules/home/service";
 import { setupStatus } from "@/modules/setup/status";
 import { AdminPanel } from "./_home/admin-panel";
 import { SetupBanner } from "./admin/setup/setup-banner";
@@ -102,16 +105,91 @@ function WorkList({ work, t, locale }: { work: WorkItem[]; t: TFunction; locale:
   );
 }
 
+/** Home's figures and to-do list: kept for a minute per person, thrown away on any change in the organisation. */
+const workOf = (actor: Actor) => cachedForPerson(actor, "home.work", () => myWork(actor));
+const tilesOf = (actor: Actor) => cachedForPerson(actor, "home.tiles", () => homeTiles(actor));
+const panelOf = (actor: Actor) => cachedForPerson(actor, "home.panel", () => adminPanel(actor));
+const setupOf = (actor: Actor) => cachedForPerson(actor, "home.setup", () => setupStatus(actor));
+
 export default async function HomePage() {
   const actor = await requireActor();
   const { t, locale } = await getT();
+  startDailyJobs(actor);
   const admin = isFullAdmin(actor);
-  const [work, tiles, panel, setup] = await Promise.all([myWork(actor), homeTiles(actor), adminPanel(actor), admin && !actor.tenant.setupDone ? setupStatus(actor) : null]);
   const firstName = actor.name.split(" ")[0];
   const orgName = (locale === "hi" && actor.tenant.nameHi) || actor.tenant.name;
-  const simpleDesk = actor.simple && actor.loginType !== "EMPLOYEE";
+  const simpleDesk = Boolean(actor.simple) && actor.loginType !== "EMPLOYEE";
   const quick = simpleDesk ? quickActions(actor) : [];
   const role = roleOf(actor.loginType, actor.permissions);
+
+  // The greeting and the quick actions show at once; the figures, the to-do list and the panel stream in as they
+  // are ready (each in its own Suspense boundary).
+  return (
+    <div className="space-y-8">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-gold-600 dark:text-gold-300">{formatDate(todayIST(), locale)}</p>
+          <h1 className="mt-2 font-display text-[2rem] leading-tight font-medium text-ink sm:text-[2.5rem]">{t(greetingKey(), { name: firstName })}</h1>
+          <p className="mt-2 text-[0.9375rem] text-muted">{t("home.subtitle", { org: orgName })}</p>
+        </div>
+        {simpleDesk && <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-medium text-brand-700 ring-1 ring-inset ring-brand-200 dark:bg-brand-950/50 dark:text-brand-200 dark:ring-brand-800">{tDynamic(t, `easy.roles.${role}`)}</span>}
+      </header>
+
+      {admin && !actor.tenant.setupDone && (
+        <Suspense fallback={null}>
+          <Setup actor={actor} />
+        </Suspense>
+      )}
+
+      {quick.length > 0 && (
+        <nav aria-label={t("easy.home.quick")} className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          {quick.map((a) => (
+            <Link key={a.key} href={a.href} className="group flex items-center gap-3 rounded-2xl bg-surface px-4 py-3.5 text-ink shadow-card ring-1 ring-line transition hover:ring-brand-300 dark:hover:ring-brand-700" data-testid={`quick-${a.key}`}>
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300">
+                <a.icon className="size-4" aria-hidden="true" />
+              </span>
+              <span className="min-w-0 text-sm font-semibold leading-tight">{tDynamic(t, `easy.home.${a.key}`)}</span>
+            </Link>
+          ))}
+        </nav>
+      )}
+
+      <Suspense fallback={<FiguresSkeleton simpleDesk={simpleDesk} />}>
+        <Figures actor={actor} t={t} locale={locale} simpleDesk={simpleDesk} role={role} />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <Panel actor={actor} t={t} locale={locale} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function Setup({ actor }: { actor: Actor }) {
+  const setup = await setupOf(actor);
+  return <SetupBanner done={setup.done} total={setup.total} org={actor.tenant.shortName ?? actor.tenant.code} />;
+}
+
+async function Panel({ actor, t, locale }: { actor: Actor; t: TFunction; locale: Locale }) {
+  const panel = await panelOf(actor);
+  return panel ? <AdminPanel panel={panel} t={t} locale={locale} /> : null;
+}
+
+function FiguresSkeleton({ simpleDesk }: { simpleDesk: boolean }) {
+  return (
+    <div className={simpleDesk ? "grid grid-cols-1 gap-6 xl:grid-cols-3" : "space-y-8"} aria-busy="true">
+      <div className={simpleDesk ? "xl:order-2 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1" : "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"}>
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-32 rounded-2xl" />
+        ))}
+      </div>
+      <Skeleton className={simpleDesk ? "h-72 rounded-2xl xl:col-span-2 xl:order-1" : "h-72 rounded-2xl"} />
+    </div>
+  );
+}
+
+async function Figures({ actor, t, locale, simpleDesk, role }: { actor: Actor; t: TFunction; locale: Locale; simpleDesk: boolean; role: ReturnType<typeof roleOf> }) {
+  const [work, tiles] = await Promise.all([workOf(actor), tilesOf(actor)]);
 
   // The four figures each desk looks at first; the others fold under "More figures".
   const first = role === "ACCOUNTS" ? ["approvalsWaiting", "payrollMonth", "payrollExceptions", "statutoryDue"] : role === "HR" ? ["approvalsWaiting", "leaveWaiting", "presentToday", "employeesCount"] : ["approvalsWaiting", "salaryCost", "employeesCount", "presentToday"];
@@ -139,31 +217,7 @@ export default async function HomePage() {
   );
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-gold-600 dark:text-gold-300">{formatDate(todayIST(), locale)}</p>
-          <h1 className="mt-2 font-display text-[2rem] leading-tight font-medium text-ink sm:text-[2.5rem]">{t(greetingKey(), { name: firstName })}</h1>
-          <p className="mt-2 text-[0.9375rem] text-muted">{t("home.subtitle", { org: orgName })}</p>
-        </div>
-        {simpleDesk && <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-medium text-brand-700 ring-1 ring-inset ring-brand-200 dark:bg-brand-950/50 dark:text-brand-200 dark:ring-brand-800">{tDynamic(t, `easy.roles.${role}`)}</span>}
-      </header>
-
-      {setup && <SetupBanner done={setup.done} total={setup.total} org={actor.tenant.shortName ?? actor.tenant.code} />}
-
-      {quick.length > 0 && (
-        <nav aria-label={t("easy.home.quick")} className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-          {quick.map((a) => (
-            <Link key={a.key} href={a.href} className="group flex items-center gap-3 rounded-2xl bg-surface px-4 py-3.5 text-ink shadow-card ring-1 ring-line transition hover:ring-brand-300 dark:hover:ring-brand-700" data-testid={`quick-${a.key}`}>
-              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300">
-                <a.icon className="size-4" aria-hidden="true" />
-              </span>
-              <span className="min-w-0 text-sm font-semibold leading-tight">{tDynamic(t, `easy.home.${a.key}`)}</span>
-            </Link>
-          ))}
-        </nav>
-      )}
-
+    <>
       {simpleDesk ? (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
           {workCard}
@@ -173,7 +227,7 @@ export default async function HomePage() {
           </section>
         </div>
       ) : (
-        <>
+        <div className="space-y-8">
           {top.length > 0 && (
             <section aria-labelledby="glance">
               <h2 id="glance" className="sr-only">{t("home.atAGlance")}</h2>
@@ -181,7 +235,7 @@ export default async function HomePage() {
             </section>
           )}
           {workCard}
-        </>
+        </div>
       )}
 
       {rest.length > 0 && (
@@ -195,8 +249,6 @@ export default async function HomePage() {
           </div>
         </details>
       )}
-
-      {panel && <AdminPanel panel={panel} t={t} locale={locale} />}
-    </div>
+    </>
   );
 }
